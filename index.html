@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>網頁版大老二</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <audio id="bgm" src="doudizhu-bgm.mp3" loop></audio>
+    <div id="dragon-animation" style="display: none;">一條龍現世！</div>
+
+    <div id="main-menu" class="screen">
+        <h1 class="game-title">離線大老二</h1>
+        <div class="menu-buttons">
+            <button id="startGameBtn" class="big-btn">開始遊戲</button>
+            <button id="menuSettingsBtn" class="big-btn">遊戲設定</button>
+        </div>
+    </div>
+
+    <div id="game-screen" class="screen" style="display: none;">
+        <div class="header">
+            <h1>離線大老二</h1>
+            <button id="gameSettingsBtn" class="gear-btn" title="遊戲設定"></button>
+        </div>
+
+        <div class="game-board">
+            <div id="player-top" class="player-area">
+                <div class="ai-name">AI 2</div>
+                <div id="ai2-cards" class="ai-cards-container horiz"></div>
+            </div>
+            
+            <div id="player-left" class="player-area">
+                <div class="ai-name">AI 1</div>
+                <div id="ai1-cards" class="ai-cards-container vert"></div>
+            </div>
+            
+            <div id="player-right" class="player-area">
+                <div class="ai-name">AI 3</div>
+                <div id="ai3-cards" class="ai-cards-container vert"></div>
+            </div>
+            
+            <div id="history-panel" style="display: none;">
+                <h3>歷史出牌</h3>
+                <ul id="history-list"></ul>
+            </div>
+
+            <div id="tracker-panel" style="display: none;">
+                <h3>可視化記牌器</h3>
+                <div id="tracker-grid"></div>
+            </div>
+
+            <div id="center-table">
+                <div id="deck-center" class="table-msg">準備發牌...</div>
+            </div>
+
+            <div id="player-bottom" class="player-area human-area">
+                <div class="shortcut-buttons">
+                    <button class="combo-btn dim" id="btn-single" data-type="single">單張</button>
+                    <button class="combo-btn dim" id="btn-pair" data-type="pair">對子</button>
+                    <button class="combo-btn dim" id="btn-straight" data-type="straight">順子</button>
+                    <button class="combo-btn dim" id="btn-fullhouse" data-type="fullHouse">葫蘆</button>
+                    <button class="combo-btn dim" id="btn-fourofakind" data-type="fourOfAKind">鐵支</button>
+                    <button class="combo-btn dim" id="btn-straightflush" data-type="straightFlush">同花順</button>
+                </div>
+                
+                <div class="player-hand-wrapper">
+                    <div class="main-hand">
+                        <div class="area-title">你的手牌</div>
+                        <div id="my-cards" class="cards-container single-row"></div>
+                    </div>
+                    <div class="saved-hand">
+                        <div class="area-title">保留區 <button id="saveComboBtn" class="action-btn">保存組合 >></button></div>
+                        <div id="saved-cards" class="cards-container single-row"></div>
+                    </div>
+                </div>
+
+                <div id="turn-indicator" class="turn-indicator" style="visibility: hidden;">輪到你出牌了</div>
+
+                <div class="action-buttons">
+                    <button id="playBtn" class="action-btn primary">出牌</button>
+                    <button id="passBtn" class="action-btn">Pass</button>
+                    <button id="lastBtn" class="action-btn danger" style="display: none;">Last!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title">遊戲設定</h2>
+            <label class="setting-item"><input type="checkbox" id="setting-music"> 歡快音樂 (斗地主風格)</label>
+            <label class="setting-item"><input type="checkbox" id="setting-pervert"> 變態模式 (AI 完全看透)</label>
+            <label class="setting-item"><input type="checkbox" id="setting-history"> 顯示歷史紀錄與記牌器</label>
+            <label class="setting-item">玩家人數：
+                <select id="setting-player-count">
+                    <option value="4">4 人</option>
+                    <option value="3">3 人</option>
+                </select>
+            </label>
+            <label class="setting-item">AI 出牌間隔：
+                <select id="setting-ai-speed">
+                    <option value="800">極快 (0.8秒)</option>
+                    <option value="1500" selected>適中 (1.5秒)</option>
+                    <option value="2500">稍慢 (2.5秒) - 推薦新手</option>
+                </select>
+            </label>
+            <button id="closeSettingsBtn" class="big-btn">儲存並關閉</button>
+        </div>
+    </div>
+
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content center-content">
+            <h2 id="winner-msg" class="modal-title">遊戲結束</h2>
+            <div class="modal-actions">
+                <button id="playAgainBtn" class="big-btn primary-bg">再來一局</button>
+                <button id="returnMenuBtn" class="big-btn danger-bg">回到主介面</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
