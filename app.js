@@ -497,9 +497,14 @@ function simulateAI(aiIndex) {
     let aiCombos = findAllCombos(aiHand);
     let validPlays = [];
     
-    let nextPlayer = (aiIndex + 1) % gameState.settings.playerCount;
-    let nextPlayerCardCount = gameState.hands[nextPlayer].length;
-    let isSuppression = (nextPlayerCardCount <= 3);
+    // 🌟 全場警戒模式：掃描除了自己以外的所有對手 🌟
+    let isSuppression = false;
+    for (let i = 0; i < gameState.settings.playerCount; i++) {
+        if (i !== aiIndex && gameState.hands[i].length <= 3) {
+            isSuppression = true; // 只要有任何人 <= 3 張，立刻拉響警報！
+            break;
+        }
+    }
 
     if (!gameState.lastPlayed) {
         let hasClub3 = aiHand.find(c => c.suit === '♣' && c.value === '3');
