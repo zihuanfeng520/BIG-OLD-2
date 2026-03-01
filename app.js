@@ -202,7 +202,6 @@ async function dealCards() {
     if (players === 3) {
         if (club3Owner === -1) club3Owner = startIndex; 
         gameState.hands[club3Owner].push(bottomCard);
-        // 🌟 核心修復：發完牌後，梅花3擁有者立刻更新UI，保證底牌進手牌 🌟
         if (club3Owner === 0) {
             gameState.hands[0].sort((a, b) => a.weight - b.weight);
             renderMyCards();
@@ -222,6 +221,9 @@ async function dealCards() {
     
     if (players === 3 && bottomCard) {
         dom.centerTable.innerHTML = `<div class="table-msg">${club3Owner === 0 ? '你' : 'AI '+club3Owner} 獲得底牌，請先手出牌</div>`;
+        let tableDeck = document.createElement('div'); tableDeck.className = 'cards-container single-row'; tableDeck.style.paddingTop = '0';
+        createCardDOM(bottomCard, null, tableDeck, true);
+        dom.centerTable.appendChild(tableDeck);
     } else {
         dom.centerTable.innerHTML = `<div class="table-msg">${club3Owner === 0 ? '你' : 'AI '+club3Owner} 擁有梅花3，請先手出牌</div>`;
     }
@@ -247,6 +249,7 @@ function getCombinations(arr, k) {
     return combos;
 }
 
+// 🌟 全局組合搜尋 (更新了鐵支 5 張牌的尋找邏輯) 🌟
 function findAllCombos(handCards) {
     let combos = { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [] };
     let hand = [...handCards].sort((a,b) => a.weight - b.weight);
@@ -255,12 +258,21 @@ function findAllCombos(handCards) {
     for (let i = 0; i < hand.length - 1; i++) for (let j = i + 1; j < hand.length; j++) if (hand[i].value === hand[j].value) combos.pair.push([hand[i], hand[j]]);
     
     let valGroups = {}; hand.forEach(c => { valGroups[c.value] = valGroups[c.value] || []; valGroups[c.value].push(c); });
-    let triples = [], pairs = [];
+    let triples = [], pairs = [], fours = [];
     for (let val in valGroups) {
-        if (valGroups[val].length === 4) combos.fourOfAKind.push(valGroups[val]);
+        if (valGroups[val].length === 4) fours.push(valGroups[val]);
         if (valGroups[val].length >= 3) triples.push(valGroups[val]);
         if (valGroups[val].length >= 2) pairs.push(valGroups[val]);
     }
+
+    // 🌟 鐵支：必須配任意一張單張，組成 5 張 🌟
+    fours.forEach(f => {
+        hand.forEach(c => {
+            if (c.value !== f[0].value) { // 找出不同的牌當單張配
+                combos.fourOfAKind.push([...f, c]);
+            }
+        });
+    });
     
     triples.forEach(t => { 
         let tCombs = getCombinations(t, 3);
@@ -339,13 +351,22 @@ dom.saveComboBtn.addEventListener('click', () => {
     renderMyCards(); analyzeHandCombos(); 
 });
 
+// 🌟 修正：鐵支為 5 張牌，並嚴格判斷 4 張相同 🌟
 function getHandPower(cards) {
     if (cards.length === 1) return { type: 'single', power: cards[0].weight };
     if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight) };
-    if (cards.length === 4 && new Set(cards.map(c=>c.value)).size === 1) return { type: 'fourOfAKind', power: cards[0].weight * 100 };
+    
     if (cards.length === 5) {
         let counts = {}; cards.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
         let vals = Object.values(counts);
+        
+        // 判斷鐵支 (4張相同 + 1張任意)
+        if (vals.includes(4)) {
+            let quadVal = Object.keys(counts).find(k => counts[k] === 4);
+            return { type: 'fourOfAKind', power: valueWeights[quadVal] * 100 };
+        }
+        
+        // 判斷葫蘆 (3張相同 + 2張相同)
         if (vals.includes(3) && vals.includes(2)) {
             let tripleVal = Object.keys(counts).find(k => counts[k] === 3);
             return { type: 'fullHouse', power: valueWeights[tripleVal] * 100 };
@@ -510,7 +531,6 @@ function simulateAI(aiIndex) {
         }
     }
 
-    // 🌟 AI Pass 容忍閾值 (避免盲目拆牌) 🌟
     let currentScore = evaluateHandState(aiHand);
 
     if (!gameState.lastPlayed) {
@@ -554,11 +574,9 @@ function simulateAI(aiIndex) {
                 executePlay(aiIndex, bestPlay.cards, bestPlay.data);
                 return;
             } else {
-                // 🌟 過濾掉「會嚴重破壞手牌分數」的出牌選擇 🌟
                 validPlays = validPlays.filter(play => {
                     let remainHand = aiHand.filter(c => !play.cards.includes(c));
                     let newScore = evaluateHandState(remainHand);
-                    // 如果分數掉超過 40 分 (例如拆散了順子)，AI 寧願 Pass！
                     return newScore >= currentScore - 40; 
                 });
 
