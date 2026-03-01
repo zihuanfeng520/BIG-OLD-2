@@ -202,6 +202,16 @@ async function dealCards() {
     if (players === 3) {
         if (club3Owner === -1) club3Owner = startIndex; 
         gameState.hands[club3Owner].push(bottomCard);
+        // 🌟 核心修復：發完牌後，梅花3擁有者立刻更新UI，保證底牌進手牌 🌟
+        if (club3Owner === 0) {
+            gameState.hands[0].sort((a, b) => a.weight - b.weight);
+            renderMyCards();
+        } else {
+            let staticBack = document.createElement('div');
+            staticBack.className = 'card-back';
+            document.getElementById(`ai${club3Owner}-cards`).appendChild(staticBack);
+        }
+        updateOpponentCardCount(players);
     }
     
     gameState.currentTurn = club3Owner;
@@ -212,9 +222,6 @@ async function dealCards() {
     
     if (players === 3 && bottomCard) {
         dom.centerTable.innerHTML = `<div class="table-msg">${club3Owner === 0 ? '你' : 'AI '+club3Owner} 獲得底牌，請先手出牌</div>`;
-        let tableDeck = document.createElement('div'); tableDeck.className = 'cards-container single-row'; tableDeck.style.paddingTop = '0';
-        createCardDOM(bottomCard, null, tableDeck, true);
-        dom.centerTable.appendChild(tableDeck);
     } else {
         dom.centerTable.innerHTML = `<div class="table-msg">${club3Owner === 0 ? '你' : 'AI '+club3Owner} 擁有梅花3，請先手出牌</div>`;
     }
@@ -389,7 +396,6 @@ dom.playBtn.addEventListener('click', () => {
     executePlay(0, selected, playData);
 });
 
-// 🌟 核心修復：玩家 Pass 時，保留桌面上原本打出的牌 🌟
 dom.passBtn.addEventListener('click', () => {
     if (gameState.currentTurn !== 0) return alert("還沒輪到你！");
     if (!gameState.lastPlayed || gameState.lastPlayed.player === 0) return alert("現在檯面最大是你，不能 Pass！");
@@ -491,20 +497,21 @@ function evaluateHandState(handCards) {
     return score;
 }
 
-// 🌟 核心修復：AI Pass 時，保留桌面上原本打出的牌 🌟
 function simulateAI(aiIndex) {
     let aiHand = gameState.hands[aiIndex];
     let aiCombos = findAllCombos(aiHand);
     let validPlays = [];
     
-    // 🌟 全場警戒模式：掃描除了自己以外的所有對手 🌟
     let isSuppression = false;
     for (let i = 0; i < gameState.settings.playerCount; i++) {
         if (i !== aiIndex && gameState.hands[i].length <= 3) {
-            isSuppression = true; // 只要有任何人 <= 3 張，立刻拉響警報！
+            isSuppression = true;
             break;
         }
     }
+
+    // 🌟 AI Pass 容忍閾值 (避免盲目拆牌) 🌟
+    let currentScore = evaluateHandState(aiHand);
 
     if (!gameState.lastPlayed) {
         let hasClub3 = aiHand.find(c => c.suit === '♣' && c.value === '3');
@@ -547,19 +554,28 @@ function simulateAI(aiIndex) {
                 executePlay(aiIndex, bestPlay.cards, bestPlay.data);
                 return;
             } else {
-                validPlays.sort((a, b) => {
-                    let remainA = aiHand.filter(c => !a.cards.includes(c));
-                    let remainB = aiHand.filter(c => !b.cards.includes(c));
-                    return evaluateHandState(remainB) - evaluateHandState(remainA);
+                // 🌟 過濾掉「會嚴重破壞手牌分數」的出牌選擇 🌟
+                validPlays = validPlays.filter(play => {
+                    let remainHand = aiHand.filter(c => !play.cards.includes(c));
+                    let newScore = evaluateHandState(remainHand);
+                    // 如果分數掉超過 40 分 (例如拆散了順子)，AI 寧願 Pass！
+                    return newScore >= currentScore - 40; 
                 });
-                let bestPlay = validPlays[0];
-                executePlay(aiIndex, bestPlay.cards, bestPlay.data);
-                return;
+
+                if (validPlays.length > 0) {
+                    validPlays.sort((a, b) => {
+                        let remainA = aiHand.filter(c => !a.cards.includes(c));
+                        let remainB = aiHand.filter(c => !b.cards.includes(c));
+                        return evaluateHandState(remainB) - evaluateHandState(remainA);
+                    });
+                    let bestPlay = validPlays[0];
+                    executePlay(aiIndex, bestPlay.cards, bestPlay.data);
+                    return;
+                }
             }
         }
     }
 
-    // AI Pass 保留牌邏輯
     let cardsContainer = dom.centerTable.querySelector('.cards-container');
     let cardsHtml = cardsContainer ? cardsContainer.outerHTML : '';
     dom.centerTable.innerHTML = `<div class="table-msg" style="color:#aaa;">AI ${aiIndex} 選擇 Pass</div>${cardsHtml}`;
