@@ -53,7 +53,8 @@ function updateScoreUI() {
         let el = document.getElementById(`score-${i}`);
         if (el) el.innerText = `${gameState.scores[i] > 0 ? '+' : ''}${gameState.scores[i]}分`;
     }
-    document.getElementById('round-num').innerText = gameState.currentRound;
+    let rNum = document.getElementById('round-num');
+    if(rNum) rNum.innerText = gameState.currentRound;
 }
 
 document.getElementById('menuSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').style.display = 'block');
@@ -91,14 +92,17 @@ dom.startGameBtn.addEventListener('click', () => {
     dealCards();
 });
 
+// 🌟 結算面板三個按鈕的完整事件監聽 🌟
 document.getElementById('nextRoundBtn').addEventListener('click', () => { 
     document.getElementById('gameOverModal').style.display = 'none'; 
     gameState.currentRound++; updateScoreUI(); dealCards(); 
 });
+
 document.getElementById('playAgainBtn').addEventListener('click', () => { 
     document.getElementById('gameOverModal').style.display = 'none'; 
     gameState.currentRound = 1; gameState.scores = [0, 0, 0, 0]; updateScoreUI(); dealCards(); 
 });
+
 document.getElementById('returnMenuBtn').addEventListener('click', () => {
     document.getElementById('gameOverModal').style.display = 'none'; dom.gameScreen.style.display = 'none';
     dom.mainMenu.style.display = 'flex'; dom.bgm.pause();
@@ -375,6 +379,7 @@ function getHandPower(cards) {
     if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
     if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
     if (cards.length === 4 && new Set(cards.map(c=>c.value)).size === 1) return { type: 'fourOfAKind', power: cards[0].weight * 100, cards: cards };
+    
     if (cards.length === 5) {
         let counts = {}; cards.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
         let vals = Object.values(counts);
@@ -596,7 +601,6 @@ function evaluateHandState(handCards) {
     return score;
 }
 
-// 🌟 全新升級：帶有寫輪眼 (變態模式) 的心機 AI 大腦 🌟
 function simulateAI(aiIndex) {
     let aiHand = gameState.hands[aiIndex];
     let aiCombos = findAllCombos(aiHand);
@@ -608,15 +612,23 @@ function simulateAI(aiIndex) {
             isSuppression = true; break;
         }
     }
-    let currentScore = evaluateHandState(aiHand);
-
-    // 🌟 變態模式評分外掛：偷看玩家手牌並針對性打擊 🌟
+    
     function getPlayScore(play, isLeading) {
         let remainHand = aiHand.filter(c => !play.cards.includes(c));
         let score = evaluateHandState(remainHand);
-        if (isLeading) score += (play.cards.length * 2);
+        
+        if (isLeading) {
+            score += (play.cards.length * 2);
+            let nextPlayer = (aiIndex + 1) % gameState.settings.playerCount;
+            let nextPlayerCards = gameState.hands[nextPlayer].length;
+            if (nextPlayerCards === 1 && play.data.type === 'single') {
+                if (!['2', 'A'].includes(play.data.cards[0].value)) score -= 2000; 
+            }
+            if (nextPlayerCards === 2 && play.data.type === 'pair') {
+                if (!['2', 'A'].includes(play.data.cards[0].value)) score -= 2000; 
+            }
+        }
 
-        // 如果開啟變態模式，AI 將啟動針對玩家的「上帝視角計算」
         if (gameState.settings.pervertMode) {
             let playerHand = [...gameState.hands[0], ...gameState.savedCards];
             let pCombos = findAllCombos(playerHand);
@@ -625,7 +637,6 @@ function simulateAI(aiIndex) {
             if (pCombos[play.data.type] && pCombos[play.data.type].length > 0) {
                 playerCanBeat = pCombos[play.data.type].some(c => getHandPower(c).power > play.data.power);
             }
-            // 判斷玩家是否有炸彈可以壓
             if (!playerCanBeat && play.data.type !== 'fourOfAKind' && play.data.type !== 'straightFlush') {
                 if (pCombos.fourOfAKind.length > 0 || pCombos.straightFlush.length > 0) playerCanBeat = true;
             } else if (!playerCanBeat && play.data.type === 'fourOfAKind' && pCombos.straightFlush.length > 0) {
@@ -633,32 +644,29 @@ function simulateAI(aiIndex) {
             }
 
             if (!playerCanBeat) {
-                // 玩家要不起！這張牌絕對是神之一手！
                 score += 400; 
             } else {
-                // 如果玩家要得起...
                 let isPlayerNext = ((aiIndex + 1) % gameState.settings.playerCount) === 0;
-                if (isPlayerNext && playerHand.length <= 4) {
-                    // 玩家是下一家而且快贏了，這手牌打出去就是送死，絕對不打！
-                    score -= 600; 
-                }
+                if (isPlayerNext && playerHand.length <= 4) score -= 600; 
             }
             
-            // 起手搶奪話語權：專挑玩家「沒有的牌型」打
             if (isLeading && playerHand.length <= 6) {
-                if (pCombos[play.data.type].length === 0) {
-                    score += 250; // 玩家沒有這種牌型，完美！
-                } else {
-                    score -= 100; // 玩家有，有被蓋過的風險
-                }
+                if (pCombos[play.data.type].length === 0) score += 250; 
+                else score -= 100; 
             }
         }
         return score;
     }
 
+    let currentScore = evaluateHandState(aiHand);
+
     if (!gameState.lastPlayed) {
         let hasClub3 = aiHand.find(c => c.suit === '♣' && c.value === '3');
-        
+        if (gameState.playedCardsHistory.length === 0 && hasClub3) {
+            executePlay(aiIndex, [hasClub3], getHandPower([hasClub3]));
+            return;
+        }
+
         let decomp = getGreedyDecomposition(aiHand);
         if (decomp.length === 2 && gameState.playedCardsHistory.length > 0) {
             let p0 = getHandPower(decomp[0]); let p1 = getHandPower(decomp[1]);
@@ -670,13 +678,9 @@ function simulateAI(aiIndex) {
         }
 
         ['single', 'pair', 'straight', 'fullHouse', 'fourOfAKind', 'straightFlush'].forEach(type => {
-            aiCombos[type].forEach(combo => {
-                if (gameState.playedCardsHistory.length === 0 && hasClub3 && !combo.includes(hasClub3)) return;
-                validPlays.push({ cards: combo, data: getHandPower(combo) });
-            });
+            aiCombos[type].forEach(combo => validPlays.push({ cards: combo, data: getHandPower(combo) }));
         });
 
-        // 套用包含變態模式的外掛評分排序
         validPlays.sort((a, b) => getPlayScore(b, true) - getPlayScore(a, true));
 
         if (validPlays.length > 0) {
@@ -700,24 +704,21 @@ function simulateAI(aiIndex) {
 
         if (validPlays.length > 0) {
             if (isSuppression) {
-                // 壓制模式下，如果有變態模式加持，用智能評分，否則無腦丟最大
                 if (gameState.settings.pervertMode) {
                     validPlays.sort((a, b) => getPlayScore(b, false) - getPlayScore(a, false));
                 } else {
-                    validPlays.sort((a, b) => b.data.power - a.data.power);
+                    validPlays.sort((a, b) => b.data.power - a.data.power); 
                 }
                 executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
                 return;
             } else {
                 validPlays = validPlays.filter(play => {
                     let rHand = aiHand.filter(c => !play.cards.includes(c));
-                    let rScore = evaluateHandState(rHand);
-                    // 在變態模式下，如果這牌能卡死玩家，就算破壞手牌結構也要出！
                     if (gameState.settings.pervertMode) {
                         let pScore = getPlayScore(play, false);
                         if (pScore > currentScore + 100) return true; 
                     }
-                    return rScore >= currentScore - 40; 
+                    return evaluateHandState(rHand) >= currentScore - 40; 
                 });
 
                 if (validPlays.length > 0) {
