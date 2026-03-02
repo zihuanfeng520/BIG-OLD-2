@@ -1,3 +1,9 @@
+// 🌟 1. 偵測手機裝置，自動切換至原生高清 UI 🌟
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+if (isMobile) {
+    document.body.classList.add('mobile-device');
+}
+
 const gameState = {
     settings: { music: false, volume: 0.5, pervertMode: false, showHistory: false, playerCount: 4, passRule: 'round', lastRule: 'single_card', aiSpeed: 1500 },
     deck: [], hands: [[], [], [], []], savedCards: [], playedCardsHistory: [], 
@@ -65,14 +71,14 @@ dom.volumeSlider.addEventListener('input', (e) => {
     dom.bgm.volume = gameState.settings.volume;
 });
 
-// 🌟 核心防呆：遊戲中途切換人數的警告彈窗 🌟
+// 🌟 2. 遊戲中途切換人數的警告防呆 🌟
 document.getElementById('closeSettingsBtn').addEventListener('click', () => {
     let newPlayerCount = parseInt(document.getElementById('setting-player-count').value);
     let applyCountChange = false;
 
     if (newPlayerCount !== gameState.settings.playerCount) {
         if (dom.gameScreen.style.display !== 'none') {
-            let confirmSwitch = confirm("如果遊戲中切換，會喪失所有紀錄並開啟新一輪牌局。請問是否繼續？");
+            let confirmSwitch = confirm("如果遊戲中切換人數，會喪失所有紀錄並開啟新一輪牌局。請問是否繼續？");
             if (confirmSwitch) {
                 applyCountChange = true;
             } else {
@@ -241,7 +247,7 @@ async function dealCards() {
             }, 100);
         });
         animationPromises.push(p);
-        await delay(25); 
+        await delay(20); 
     }
     
     await Promise.all(animationPromises); 
@@ -397,7 +403,6 @@ dom.saveComboBtn.addEventListener('click', () => {
     renderMyCards(); analyzeHandCombos(); 
 });
 
-// 🌟 核心防當機：確保每種牌型都回傳 cards 🌟
 function getHandPower(cards) {
     if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
     if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
@@ -473,17 +478,16 @@ dom.passBtn.addEventListener('click', () => {
     gameState.passCount++; nextTurn();
 });
 
-// 🌟 透明化計分明細系統 🌟
 function calculatePenalty(hand, winnerPlayData) {
     let count = hand.length;
     if (count === 0) return { penalty: 0, text: '' };
     
     let penalty = count; 
-    let reasons = [`剩 ${count} 張 (基礎 -${count})`];
+    let reasons = [`剩 ${count} 張 (-${count})`];
 
     if (count >= 10) {
         penalty *= 2; 
-        reasons.push(`牌數 ≥ 10 (x2)`);
+        reasons.push(`牌數≥10 (x2)`);
     }
     
     let twosCount = hand.filter(c => c.value === '2').length;
@@ -515,6 +519,7 @@ function calculatePenalty(hand, winnerPlayData) {
     return { penalty: penalty, text: reasons.join(' ➔ ') };
 }
 
+// 🌟 3. 防彈裝甲：保證 HTML 結算面板就算寫錯也不會當機 🌟
 function executePlay(playerIndex, cards, playData) {
     gameState.hands[playerIndex] = gameState.hands[playerIndex].filter(c => !cards.includes(c));
     if(playerIndex === 0) gameState.savedCards = gameState.savedCards.filter(c => !cards.includes(c));
@@ -542,7 +547,6 @@ function executePlay(playerIndex, cards, playData) {
     }
     analyzeHandCombos();
     
-    // 🌟 結算面板渲染邏輯 🌟
     let remainingCards = playerIndex === 0 ? (gameState.hands[0].length + gameState.savedCards.length) : gameState.hands[playerIndex].length;
     
     if (remainingCards === 0) {
@@ -577,11 +581,17 @@ function executePlay(playerIndex, cards, playData) {
             updateScoreUI();
 
             document.getElementById('winner-msg').innerText = playerIndex === 0 ? "🎉 恭喜你，你贏了！" : `💀 遊戲結束，${winnerName} 贏了！`;
-            document.getElementById('round-summary').innerHTML = detailsHtml;
-            document.getElementById('gameOverModal').style.display = 'block';
+            
+            let roundSummaryEl = document.getElementById('round-summary');
+            if (roundSummaryEl) roundSummaryEl.innerHTML = detailsHtml;
+            
+            let modalEl = document.getElementById('gameOverModal');
+            if (modalEl) modalEl.style.display = 'block';
+            else alert("遊戲結束！" + winnerName + "贏了！(請更新 HTML 檔案以顯示計分板)");
+
         } catch (e) {
             console.error("結算錯誤:", e);
-            alert("結算時發生錯誤，但遊戲已結束！");
+            alert("結算時發生錯誤，請確認已更新最新版 HTML！");
         }
         return; 
     }
@@ -698,7 +708,7 @@ function simulateAI(aiIndex) {
             }
 
             if (!playerCanBeat) {
-                // 🌟 修正過度表現：變態模式下，只有「非起手(跟牌)」時，才無腦出神牌！ 🌟
+                // 🌟 修正變態模式過度活躍：起手時絕對不要無腦加分丟大牌 🌟
                 if (!isLeading) score += 400; 
             } else {
                 let isPlayerNext = ((aiIndex + 1) % gameState.settings.playerCount) === 0;
