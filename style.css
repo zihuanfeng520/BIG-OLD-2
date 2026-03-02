@@ -15,8 +15,18 @@ body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: 
 .primary-bg { background-color: #43a047 !important; }
 .danger-bg { background-color: #e53935 !important; }
 
+/* 🌟 一條龍全螢幕特效 🌟 */
+#dragon-animation { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(5px); }
+.dragon-text { font-size: 80px; font-weight: 900; color: #ffd700; text-shadow: 0 0 20px #ff8c00, 0 0 40px #ff0000, 0 0 60px #ff0000; animation: dragonVibe 0.4s ease-in-out infinite alternate, zoomIn 0.5s ease-out; }
+@keyframes dragonVibe { 0% { transform: scale(1) rotate(-3deg); } 100% { transform: scale(1.1) rotate(3deg); } }
+@keyframes zoomIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* 🌟 金色隱藏按鈕 🌟 */
+.dragon-btn { background: linear-gradient(45deg, #ffd700, #ff8c00) !important; color: #000 !important; border: 2px solid #fff !important; box-shadow: 0 0 15px rgba(255, 215, 0, 0.8) !important; text-shadow: none !important; animation: pulseGold 1.5s infinite alternate; }
+@keyframes pulseGold { from { box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); } to { box-shadow: 0 0 20px rgba(255, 215, 0, 1), 0 0 30px #ff8c00; transform: scale(1.05); } }
+
 /* =========================================
-   💻 電腦版專屬 UI (預設) 💻
+   💻 電腦版專屬 UI 💻
 ========================================= */
 .round-info { position: absolute; left: 50%; transform: translateX(-50%); color: #fff; font-size: 16px; font-weight: bold; background: rgba(251, 192, 45, 0.2); padding: 4px 15px; border-radius: 20px; border: 1px solid #fbc02d; text-shadow: 1px 1px 2px #000; }
 .score-badge { color: #fbc02d; font-weight: bold; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 6px; margin-left: 8px; font-size: 13px; border: 1px solid rgba(251, 192, 45, 0.4); display: inline-block; }
@@ -116,37 +126,29 @@ body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: 
 .combo-btn.active { background: #0288d1; color: #fff; border-color: #4fc3f7; text-shadow: 0 1px 2px rgba(0,0,0,0.8); box-shadow: 0 0 10px rgba(2,136,209,0.7); }
 .action-buttons { margin-top: 15px; display: flex; justify-content: center; gap: 15px; }
 
-/* --- 🌟 彈窗與卡片式設定選單優化 🌟 --- */
+/* 設定面板與結算 */
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 2000; }
 .modal-content { background: #1a1a1a; border-radius: 12px; border: 1px solid #444; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
 .settings-content { width: 90%; max-width: 420px; margin: 10vh auto; padding: 25px; display: flex; flex-direction: column; gap: 12px; }
 .center-content { width: 90%; max-width: 450px; margin: 15vh auto; padding: 30px; text-align: center; }
-
 .modal-title { margin: 0 0 15px 0; color: #fbc02d; font-size: 24px; border-bottom: 1px solid #333; padding-bottom: 10px; text-align: center; }
-
-/* 設定項目卡片式排版 */
 .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); transition: background 0.2s; }
 .setting-row:hover { background: rgba(255,255,255,0.08); }
-
 .toggle-label { display: flex; align-items: center; gap: 10px; cursor: pointer; color: #ddd; font-size: 15px; width: 100%; user-select: none; }
 .toggle-label input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #fbc02d; }
-
 .split-row { color: #ddd; font-size: 15px; }
 .split-row select { background: #2b2b2b; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 5px; font-size: 14px; cursor: pointer; outline: none; }
 .split-row select:focus { border-color: #fbc02d; }
-
-.music-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .volume-control { display: flex; align-items: center; gap: 8px; width: 140px; justify-content: flex-end; }
 .volume-control span { font-size: 18px; line-height: 1; }
 .volume-control input[type="range"] { -webkit-appearance: none; width: 100px; height: 6px; background: #444; border-radius: 3px; outline: none; }
 .volume-control input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fbc02d; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
 .volume-control input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fbc02d; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.8); border: none; }
-
 .modal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
 
 
 /* =========================================
-   📱 手機版專屬 UI (原生高畫質) 📱
+   📱 手機版專屬 UI 📱
 ========================================= */
 body.mobile-device { overflow-y: auto; }
 body.mobile-device .game-title { font-size: 36px; margin-bottom: 20px; }
@@ -154,30 +156,22 @@ body.mobile-device .header { padding: 5px 10px; }
 body.mobile-device .header h1 { font-size: 16px; width: auto; }
 body.mobile-device .round-info { font-size: 14px; padding: 2px 10px; }
 body.mobile-device .gear-btn { width: 28px; height: 28px; }
-
-/* 卡牌以真實像素重新定義，解決模糊 */
-body.mobile-device #player-bottom { width: 100%; bottom: 0; padding: 5px; }
+body.mobile-device #player-bottom { width: 100%; bottom: 0; padding: 5px; z-index: 20; }
 body.mobile-device .card { width: 44px; height: 64px; border-radius: 4px; border-width: 1px; box-shadow: -1px 1px 3px rgba(0,0,0,0.6); }
 body.mobile-device .single-row .card { margin-left: -28px; }
 body.mobile-device .single-row .card:hover { transform: translateY(-8px); margin-right: 5px; }
 body.mobile-device .card.selected { transform: translateY(-12px) !important; }
 body.mobile-device #my-cards .card-back { margin-left: -28px; width: 44px; height: 64px; }
-
-/* 卡牌內部文字與圖案原生渲染 */
 body.mobile-device .card-corner { font-size: 11px; padding: 2px; }
 body.mobile-device .pip { font-size: 10px; width: 10px; height: 10px; margin-left: -5px; margin-top: -5px; }
 body.mobile-device .pip-A { font-size: 22px; margin-top: -11px; margin-left: -11px; }
 body.mobile-device .face-card { width: 60%; height: 60%; top: 20%; left: 20%; }
 body.mobile-device .face-icon { font-size: 20px; }
-
-/* 手牌容器調整，不使用 scale */
 body.mobile-device .player-hand-wrapper { flex-direction: column; gap: 4px; margin-top: 5px; }
 body.mobile-device .main-hand { max-width: 100%; padding: 5px; background: rgba(0,0,0,0.5); border: none; }
 body.mobile-device .saved-hand { width: 100%; min-width: unset; padding: 5px; background: rgba(0,0,0,0.5); border: none; }
 body.mobile-device .cards-container { padding-top: 15px; min-height: 80px; }
 body.mobile-device .area-title { font-size: 12px; margin-bottom: 2px; }
-
-/* 桌面區透明化與縮小 */
 body.mobile-device #center-table { width: 95%; min-height: 100px; padding: 5px; top: 40%; background: transparent; border: none; z-index: 5; }
 body.mobile-device .table-msg { font-size: 14px; margin-bottom: 5px; text-shadow: 1px 1px 2px #000; }
 body.mobile-device .card.mini { width: 38px; height: 55px; }
@@ -185,29 +179,23 @@ body.mobile-device .single-row .card.mini { margin-left: -22px; }
 body.mobile-device .card.mini .card-corner { font-size: 9px; }
 body.mobile-device .card.mini .face-icon { font-size: 16px; }
 body.mobile-device .card.mini .pip-A { font-size: 18px; margin-top: -9px; margin-left: -9px; }
-
-/* AI 玩家區域 */
 body.mobile-device #player-top { width: 100%; top: 45px; padding: 2px; background: transparent; border: none; }
 body.mobile-device #player-left { width: 60px; height: 200px; left: 0; top: 40%; padding: 2px; background: transparent; border: none; }
 body.mobile-device #player-right { width: 60px; height: 200px; right: 0; top: 40%; padding: 2px; background: transparent; border: none; }
 body.mobile-device .ai-name { font-size: 11px; margin-bottom: 2px; }
 body.mobile-device .score-badge { font-size: 10px; padding: 1px 4px; display: inline-block; margin-top: 2px; margin-left: 0; }
-
 body.mobile-device .card-back { width: 22px; height: 32px; border-width: 1px; }
 body.mobile-device .ai-cards-container.horiz .card-back { margin-left: -14px; }
 body.mobile-device .ai-cards-container.vert .card-back { margin-top: -24px; transform: rotate(90deg); }
-
-/* 面板縮小並靠邊 */
 body.mobile-device #history-panel { left: 5px; top: 45px; width: 120px; height: 100px; font-size: 10px; padding: 5px; z-index: 10; opacity: 0.85; }
 body.mobile-device #history-panel h3 { font-size: 11px; margin-bottom: 3px; }
 body.mobile-device #tracker-panel { right: 5px; top: 45px; width: 150px; height: 100px; padding: 5px; z-index: 10; opacity: 0.85; }
 body.mobile-device #tracker-panel h3 { font-size: 11px; margin-bottom: 3px; }
 body.mobile-device .tracker-cell { font-size: 9px; }
-
-/* 按鈕區 */
 body.mobile-device .shortcut-buttons { display: flex; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; gap: 6px; padding-bottom: 4px; margin-bottom: 2px; -webkit-overflow-scrolling: touch; }
 body.mobile-device .shortcut-buttons::-webkit-scrollbar { display: none; }
 body.mobile-device .combo-btn { padding: 5px 12px; font-size: 13px; flex-shrink: 0; }
 body.mobile-device .turn-indicator { font-size: 15px; min-height: 20px; margin-top: 5px; }
 body.mobile-device .action-buttons { margin-top: 5px; gap: 10px; }
 body.mobile-device .action-btn { font-size: 14px; padding: 6px 20px; }
+body.mobile-device .dragon-text { font-size: 50px; }
