@@ -1,4 +1,3 @@
-// 🌟 1. 偵測手機裝置，自動切換至原生高清 UI 🌟
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
 if (isMobile) {
     document.body.classList.add('mobile-device');
@@ -71,7 +70,6 @@ dom.volumeSlider.addEventListener('input', (e) => {
     dom.bgm.volume = gameState.settings.volume;
 });
 
-// 🌟 2. 遊戲中途切換人數的警告防呆 🌟
 document.getElementById('closeSettingsBtn').addEventListener('click', () => {
     let newPlayerCount = parseInt(document.getElementById('setting-player-count').value);
     let applyCountChange = false;
@@ -307,6 +305,57 @@ function getCombinations(arr, k) {
     return combos;
 }
 
+// 🌟 修正：葫蘆、鐵支的副牌權重演算法，確保優先挑選最小的副牌 🌟
+function getHandPower(cards) {
+    if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
+    if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
+    if (cards.length === 4 && new Set(cards.map(c=>c.value)).size === 1) return { type: 'fourOfAKind', power: cards[0].weight * 100, cards: cards };
+    
+    if (cards.length === 5) {
+        let counts = {}; cards.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
+        let vals = Object.values(counts);
+        
+        if (vals.includes(4)) {
+            let quadVal = Object.keys(counts).find(k => counts[k] === 4);
+            let kickerVal = Object.keys(counts).find(k => counts[k] === 1);
+            // 主戰力 × 100，加上副牌戰力作為小數點，保證副牌越小，在陣列裡越前面
+            let power = valueWeights[quadVal] * 100 + (valueWeights[kickerVal] || 0);
+            return { type: 'fourOfAKind', power: power, cards: cards };
+        }
+        if (vals.includes(3) && vals.includes(2)) {
+            let tripleVal = Object.keys(counts).find(k => counts[k] === 3);
+            let pairVal = Object.keys(counts).find(k => counts[k] === 2);
+            // 同上，保證葫蘆選對子時，對 3 會排在對 2 前面！
+            let power = valueWeights[tripleVal] * 100 + (valueWeights[pairVal] || 0);
+            return { type: 'fullHouse', power: power, cards: cards };
+        }
+        
+        let isFlush = new Set(cards.map(c=>c.suit)).size === 1;
+        let sortedWeights = cards.map(c => c.weight).sort((a,b)=>a-b);
+        let valSet = new Set(cards.map(c=>c.value));
+        
+        let isStraight = false;
+        let straightPower = 0;
+
+        if(valSet.has('2') && valSet.has('3') && valSet.has('4') && valSet.has('5')) {
+            if(valSet.has('6')) { straightPower = cards.find(c=>c.value === '2').weight + 1000; isStraight = true; }
+            else if(valSet.has('A')) { straightPower = cards.find(c=>c.value === '5').weight - 1000; isStraight = true; }
+        } else {
+            let wVals = Array.from(valSet).map(v => valueWeights[v]).sort((a,b)=>a-b);
+            if (wVals.length === 5 && wVals[4] - wVals[0] === 4) {
+                straightPower = sortedWeights[4]; 
+                isStraight = true;
+            }
+        }
+
+        if (isStraight) {
+            if (isFlush) return { type: 'straightFlush', power: straightPower * 1000, cards: cards };
+            return { type: 'straight', power: straightPower, cards: cards };
+        }
+    }
+    return null;
+}
+
 function findAllCombos(handCards) {
     let combos = { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [] };
     let hand = [...handCards].sort((a,b) => a.weight - b.weight);
@@ -403,50 +452,6 @@ dom.saveComboBtn.addEventListener('click', () => {
     renderMyCards(); analyzeHandCombos(); 
 });
 
-function getHandPower(cards) {
-    if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
-    if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
-    if (cards.length === 4 && new Set(cards.map(c=>c.value)).size === 1) return { type: 'fourOfAKind', power: cards[0].weight * 100, cards: cards };
-    
-    if (cards.length === 5) {
-        let counts = {}; cards.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
-        let vals = Object.values(counts);
-        
-        if (vals.includes(4)) {
-            let quadVal = Object.keys(counts).find(k => counts[k] === 4);
-            return { type: 'fourOfAKind', power: valueWeights[quadVal] * 100, cards: cards };
-        }
-        if (vals.includes(3) && vals.includes(2)) {
-            let tripleVal = Object.keys(counts).find(k => counts[k] === 3);
-            return { type: 'fullHouse', power: valueWeights[tripleVal] * 100, cards: cards };
-        }
-        
-        let isFlush = new Set(cards.map(c=>c.suit)).size === 1;
-        let sortedWeights = cards.map(c => c.weight).sort((a,b)=>a-b);
-        let valSet = new Set(cards.map(c=>c.value));
-        
-        let isStraight = false;
-        let straightPower = 0;
-
-        if(valSet.has('2') && valSet.has('3') && valSet.has('4') && valSet.has('5')) {
-            if(valSet.has('6')) { straightPower = cards.find(c=>c.value === '2').weight + 1000; isStraight = true; }
-            else if(valSet.has('A')) { straightPower = cards.find(c=>c.value === '5').weight - 1000; isStraight = true; }
-        } else {
-            let wVals = Array.from(valSet).map(v => valueWeights[v]).sort((a,b)=>a-b);
-            if (wVals.length === 5 && wVals[4] - wVals[0] === 4) {
-                straightPower = sortedWeights[4]; 
-                isStraight = true;
-            }
-        }
-
-        if (isStraight) {
-            if (isFlush) return { type: 'straightFlush', power: straightPower * 1000, cards: cards };
-            return { type: 'straight', power: straightPower, cards: cards };
-        }
-    }
-    return null;
-}
-
 dom.playBtn.addEventListener('click', () => {
     if (gameState.currentTurn !== 0) return alert("還沒輪到你！");
     let selected = [...gameState.hands[0].filter(c=>c.selected), ...gameState.savedCards.filter(c=>c.selected)];
@@ -519,7 +524,6 @@ function calculatePenalty(hand, winnerPlayData) {
     return { penalty: penalty, text: reasons.join(' ➔ ') };
 }
 
-// 🌟 3. 防彈裝甲：保證 HTML 結算面板就算寫錯也不會當機 🌟
 function executePlay(playerIndex, cards, playData) {
     gameState.hands[playerIndex] = gameState.hands[playerIndex].filter(c => !cards.includes(c));
     if(playerIndex === 0) gameState.savedCards = gameState.savedCards.filter(c => !cards.includes(c));
@@ -671,9 +675,11 @@ function simulateAI(aiIndex) {
     let validPlays = [];
     
     let isSuppression = false;
+    let minEnemyCards = 99;
     for (let i = 0; i < gameState.settings.playerCount; i++) {
-        if (i !== aiIndex && gameState.hands[i].length <= 3) {
-            isSuppression = true; break;
+        if (i !== aiIndex) {
+            minEnemyCards = Math.min(minEnemyCards, gameState.hands[i].length);
+            if (gameState.hands[i].length <= 3) isSuppression = true;
         }
     }
     
@@ -708,7 +714,6 @@ function simulateAI(aiIndex) {
             }
 
             if (!playerCanBeat) {
-                // 🌟 修正變態模式過度活躍：起手時絕對不要無腦加分丟大牌 🌟
                 if (!isLeading) score += 400; 
             } else {
                 let isPlayerNext = ((aiIndex + 1) % gameState.settings.playerCount) === 0;
@@ -763,27 +768,47 @@ function simulateAI(aiIndex) {
     } else {
         let targetType = gameState.lastPlayed.type;
         let targetPower = gameState.lastPlayed.power;
+        let targetCount = gameState.lastPlayed.cards.length;
 
+        let normalPlays = [];
         aiCombos[targetType].filter(c => getHandPower(c).power > targetPower).forEach(combo => {
-            validPlays.push({ cards: combo, data: getHandPower(combo) });
+            normalPlays.push({ cards: combo, data: getHandPower(combo) });
         });
 
+        let bombPlays = [];
         if (targetType !== 'fourOfAKind' && targetType !== 'straightFlush') {
-            aiCombos.fourOfAKind.forEach(c => validPlays.push({ cards: c, data: getHandPower(c) }));
-            aiCombos.straightFlush.forEach(c => validPlays.push({ cards: c, data: getHandPower(c) }));
+            aiCombos.fourOfAKind.forEach(c => bombPlays.push({ cards: c, data: getHandPower(c) }));
+            aiCombos.straightFlush.forEach(c => bombPlays.push({ cards: c, data: getHandPower(c) }));
         } else if (targetType === 'fourOfAKind') {
-            aiCombos.straightFlush.forEach(c => validPlays.push({ cards: c, data: getHandPower(c) }));
+            aiCombos.straightFlush.forEach(c => bombPlays.push({ cards: c, data: getHandPower(c) }));
+        }
+
+        validPlays = [...normalPlays];
+
+        // 🌟 修正「大砲打蚊子」：防守時，只有在危急時刻才准動用怪物！ 🌟
+        if (normalPlays.length === 0 || minEnemyCards <= targetCount || minEnemyCards <= 2) {
+            validPlays = validPlays.concat(bombPlays);
         }
 
         if (validPlays.length > 0) {
             if (isSuppression) {
                 if (gameState.settings.pervertMode) {
                     validPlays.sort((a, b) => getPlayScore(b, false) - getPlayScore(a, false));
+                    executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
+                    return;
                 } else {
-                    validPlays.sort((a, b) => b.data.power - a.data.power); 
+                    // 壓制模式下，分離出普通牌，優先用普通牌的最大張去頂，扣留炸彈！
+                    let safePlays = validPlays.filter(p => p.data.type === targetType);
+                    if (safePlays.length > 0 && minEnemyCards > targetCount && minEnemyCards > 1) {
+                        safePlays.sort((a, b) => b.data.power - a.data.power);
+                        executePlay(aiIndex, safePlays[0].cards, safePlays[0].data);
+                        return;
+                    } else {
+                        validPlays.sort((a, b) => b.data.power - a.data.power); 
+                        executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
+                        return;
+                    }
                 }
-                executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
-                return;
             } else {
                 validPlays = validPlays.filter(play => {
                     let rHand = aiHand.filter(c => !play.cards.includes(c));
