@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>網頁版大老二</title>
-    <link rel="stylesheet" href="style.css?v=12">
+    <title>大老二</title>
+    <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
     <audio id="bgm" src="doudizhu-bgm.mp3" loop></audio>
     <div id="dragon-animation" style="display: none;">一條龍現世！</div>
 
     <div id="main-menu" class="screen">
-        <h1 class="game-title">離線大老二</h1>
+        <h1 class="game-title">大老二</h1>
         <div class="menu-buttons">
             <button id="startGameBtn" class="big-btn">開始遊戲</button>
             <button id="menuSettingsBtn" class="big-btn">遊戲設定</button>
@@ -20,7 +20,7 @@
 
     <div id="game-screen" class="screen" style="display: none;">
         <div class="header">
-            <h1>離線大老二</h1>
+            <h1>大老二</h1>
             <div class="round-info">第 <span id="round-num">1</span> 局</div>
             <button id="gameSettingsBtn" class="gear-btn" title="遊戲設定"></button>
         </div>
@@ -100,6 +100,10 @@
             
             <div class="setting-row">
                 <label class="toggle-label"><input type="checkbox" id="setting-pervert"> <span>變態模式 (AI 完全看透)</span></label>
+            </div>
+
+            <div class="setting-row">
+                <label class="toggle-label"><input type="checkbox" id="setting-strict-pass"> <span>嚴格 Pass (單輪喊過不得再出)</span></label>
             </div>
 
             <div class="setting-row">
