@@ -8,8 +8,9 @@ const gameState = {
     deck: [], hands: [[], [], [], []], savedCards: [], playedCardsHistory: [], 
     currentTurn: 0, lastPlayed: null, passCount: 0,
     passedPlayers: [false, false, false, false],
-    availableCombos: { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [] },
-    comboIndexes: { single: 0, pair: 0, straight: 0, fullHouse: 0, fourOfAKind: 0, straightFlush: 0 },
+    // 🌟 新增一條龍的快捷鍵狀態 🌟
+    availableCombos: { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [], dragon: [] },
+    comboIndexes: { single: 0, pair: 0, straight: 0, fullHouse: 0, fourOfAKind: 0, straightFlush: 0, dragon: 0 },
     currentRound: 1, scores: [0, 0, 0, 0]
 };
 
@@ -18,7 +19,7 @@ const valueWeights = { '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '
 const faceValues = { 'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13 };
 const suits = ['♣', '♦', '♥', '♠'];
 const trackerValues = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
-const typeNames = { single: '單張', pair: '對子', straight: '順子', fullHouse: '葫蘆', fourOfAKind: '鐵支', straightFlush: '同花順' };
+const typeNames = { single: '單張', pair: '對子', straight: '順子', fullHouse: '葫蘆', fourOfAKind: '鐵支', straightFlush: '同花順', dragon: '一條龍' };
 
 const dom = {
     mainMenu: document.getElementById('main-menu'), gameScreen: document.getElementById('game-screen'),
@@ -309,6 +310,7 @@ function getCombinations(arr, k) {
     return combos;
 }
 
+// 🌟 究極核彈判斷：一條龍 (13張牌) 🌟
 function getHandPower(cards) {
     if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
     if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
@@ -354,11 +356,20 @@ function getHandPower(cards) {
             return { type: 'straight', power: straightPower, cards: cards };
         }
     }
+    
+    // 🐉 檢查是否為一條龍 🐉
+    if (cards.length === 13) {
+        let valSet = new Set(cards.map(c => c.value));
+        if (valSet.size === 13) {
+            return { type: 'dragon', power: 9999999, cards: cards };
+        }
+    }
+
     return null;
 }
 
 function findAllCombos(handCards) {
-    let combos = { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [] };
+    let combos = { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [], dragon: [] };
     let hand = [...handCards].sort((a,b) => a.weight - b.weight);
     
     hand.forEach(c => combos.single.push([c]));
@@ -398,19 +409,42 @@ function findAllCombos(handCards) {
         }
     });
 
-    for (let type in combos) combos[type].sort((a, b) => getHandPower(a).power - getHandPower(b).power);
+    // 🐉 掃描一條龍組合 🐉
+    let hasDragon = trackerValues.every(v => valGroups[v] && valGroups[v].length > 0);
+    if (hasDragon) {
+        let dragonGroups = trackerValues.map(v => valGroups[v]);
+        let dCombos = cartesianProduct(dragonGroups);
+        combos.dragon = dCombos;
+    }
+
+    for (let type in combos) {
+        if(combos[type].length > 0) {
+            combos[type].sort((a, b) => getHandPower(a).power - getHandPower(b).power);
+        }
+    }
     return combos;
 }
 
 function analyzeHandCombos() {
     let allCombos = findAllCombos([...gameState.hands[0], ...gameState.savedCards]);
-    gameState.comboIndexes = { single: 0, pair: 0, straight: 0, fullHouse: 0, fourOfAKind: 0, straightFlush: 0 };
+    gameState.comboIndexes = { single: 0, pair: 0, straight: 0, fullHouse: 0, fourOfAKind: 0, straightFlush: 0, dragon: 0 };
     gameState.availableCombos = allCombos;
 
     document.querySelectorAll('.combo-btn').forEach(btn => {
         let type = btn.getAttribute('data-type');
-        if (allCombos[type].length > 0) { btn.classList.remove('dim'); btn.classList.add('active'); }
-        else { btn.classList.add('dim'); btn.classList.remove('active'); }
+        
+        // 🌟 隱藏金龍按鈕的顯示邏輯 🌟
+        if (type === 'dragon') {
+            if (allCombos.dragon && allCombos.dragon.length > 0) {
+                btn.style.display = 'inline-block';
+                btn.classList.remove('dim'); btn.classList.add('active');
+            } else {
+                btn.style.display = 'none';
+            }
+        } else {
+            if (allCombos[type].length > 0) { btn.classList.remove('dim'); btn.classList.add('active'); }
+            else { btn.classList.add('dim'); btn.classList.remove('active'); }
+        }
     });
 }
 
@@ -418,7 +452,7 @@ document.querySelectorAll('.combo-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         let type = btn.getAttribute('data-type');
         let combos = gameState.availableCombos[type];
-        if (combos.length === 0) return; 
+        if (!combos || combos.length === 0) return; 
         gameState.hands[0].forEach(c => c.selected = false);
         gameState.savedCards.forEach(c => c.selected = false);
         combos[gameState.comboIndexes[type]].forEach(comboCard => {
@@ -457,17 +491,29 @@ dom.playBtn.addEventListener('click', () => {
     if (gameState.currentTurn !== 0) return alert("還沒輪到你！");
     let selected = [...gameState.hands[0].filter(c=>c.selected), ...gameState.savedCards.filter(c=>c.selected)];
     if (selected.length === 0) return alert("請先選擇要出的牌！");
-    if (gameState.playedCardsHistory.length === 0 && !selected.find(c=>c.suit === '♣' && c.value === '3')) return alert("首局第一手必須包含梅花3！");
-
+    
     let playData = getHandPower(selected);
     if (!playData) return alert("這不是合法的牌型！");
+    
+    if (gameState.playedCardsHistory.length === 0 && playData.type !== 'dragon' && !selected.find(c=>c.suit === '♣' && c.value === '3')) {
+        return alert("首局第一手必須包含梅花3！(除非打出一條龍)");
+    }
 
     if (gameState.lastPlayed && gameState.lastPlayed.player !== 0) {
         let lp = gameState.lastPlayed;
-        if (playData.type === 'fourOfAKind' && lp.type !== 'fourOfAKind' && lp.type !== 'straightFlush') { }
-        else if (playData.type === 'straightFlush' && lp.type !== 'straightFlush') { }
-        else if (playData.type !== lp.type || selected.length !== lp.cards.length) return alert("必須出與上一手相同的牌型和張數！");
-        else if (playData.power <= lp.power) return alert("你的牌沒有大過上一家！");
+        
+        // 🌟 一條龍無視任何規則，直接蓋爆對手！ 🌟
+        if (playData.type === 'dragon') { 
+            // 允許出牌！
+        } else if (lp.type === 'dragon') {
+            return alert("對方出了一條龍，你絕對大不過！");
+        } else if (playData.type === 'fourOfAKind' && lp.type !== 'fourOfAKind' && lp.type !== 'straightFlush') { 
+        } else if (playData.type === 'straightFlush' && lp.type !== 'straightFlush') { 
+        } else if (playData.type !== lp.type || selected.length !== lp.cards.length) {
+            return alert("必須出與上一手相同的牌型和張數！");
+        } else if (playData.power <= lp.power) {
+            return alert("你的牌沒有大過上一家！");
+        }
     }
     executePlay(0, selected, playData);
 });
@@ -487,6 +533,7 @@ dom.passBtn.addEventListener('click', () => {
     nextTurn();
 });
 
+// 🌟 一條龍地獄級懲罰 🌟
 function calculatePenalty(hand, winnerPlayData) {
     let count = hand.length;
     if (count === 0) return { penalty: 0, text: '' };
@@ -517,7 +564,11 @@ function calculatePenalty(hand, winnerPlayData) {
         reasons.push(`未出怪物 (x2)`);
     }
     
-    if (winnerPlayData.type === 'fourOfAKind' || winnerPlayData.type === 'straightFlush') {
+    // 尾刀判定
+    if (winnerPlayData.type === 'dragon') {
+        penalty *= 4;
+        reasons.push(`被一條龍碾壓 (x4)`);
+    } else if (winnerPlayData.type === 'fourOfAKind' || winnerPlayData.type === 'straightFlush') {
         penalty *= 2;
         reasons.push(`被怪物尾刀 (x2)`);
     } else if ((winnerPlayData.type === 'single' || winnerPlayData.type === 'pair') && winnerPlayData.cards[0].value === '2') {
@@ -529,6 +580,15 @@ function calculatePenalty(hand, winnerPlayData) {
 }
 
 function executePlay(playerIndex, cards, playData) {
+    // 🐉 如果打出一條龍，觸發全螢幕震撼特效！ 🐉
+    if (playData.type === 'dragon') {
+        let dragonAnim = document.getElementById('dragon-animation');
+        if (dragonAnim) {
+            dragonAnim.style.display = 'flex';
+            setTimeout(() => { dragonAnim.style.display = 'none'; }, 3000);
+        }
+    }
+
     gameState.hands[playerIndex] = gameState.hands[playerIndex].filter(c => !cards.includes(c));
     if(playerIndex === 0) gameState.savedCards = gameState.savedCards.filter(c => !cards.includes(c));
     if(playerIndex === 0 && gameState.savedCards.length === 0) dom.saveComboBtn.innerText = "保存組合 >>"; 
@@ -540,7 +600,9 @@ function executePlay(playerIndex, cards, playData) {
     let typeStr = typeNames[playData.type] || '未知';
     let cardsDetail = cards.map(c => c.suit + c.value).join(' '); 
     
-    dom.centerTable.innerHTML = `<div class="table-msg">${playerName} 出牌：${typeStr}<br><span style="font-size:13px; color:#aaa">${cardsDetail}</span></div><div class="cards-container single-row" style="min-height: auto; padding-top:0;"></div>`;
+    // 如果是一條龍，顯示特別金黃色字體
+    let msgColor = playData.type === 'dragon' ? '#ffd700' : '#fbc02d';
+    dom.centerTable.innerHTML = `<div class="table-msg" style="color: ${msgColor};">${playerName} 出牌：${typeStr}<br><span style="font-size:13px; color:#aaa">${cardsDetail}</span></div><div class="cards-container single-row" style="min-height: auto; padding-top:0;"></div>`;
     let tableContainer = dom.centerTable.querySelector('.cards-container');
     cards.forEach(c => createCardDOM(c, null, tableContainer, true));
     
@@ -558,49 +620,52 @@ function executePlay(playerIndex, cards, playData) {
     let remainingCards = playerIndex === 0 ? (gameState.hands[0].length + gameState.savedCards.length) : gameState.hands[playerIndex].length;
     
     if (remainingCards === 0) {
-        try {
-            let roundScores = [0, 0, 0, 0];
-            let totalPenalty = 0;
-            let detailsHtml = `<div style="max-height: 250px; overflow-y: auto;">`; 
+        // 如果一條龍觸發結算，讓動畫播完再跳結算面板
+        setTimeout(() => {
+            try {
+                let roundScores = [0, 0, 0, 0];
+                let totalPenalty = 0;
+                let detailsHtml = `<div style="max-height: 250px; overflow-y: auto;">`; 
 
-            for (let i = 0; i < gameState.settings.playerCount; i++) {
-                if (i === playerIndex) continue;
-                let hand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
+                for (let i = 0; i < gameState.settings.playerCount; i++) {
+                    if (i === playerIndex) continue;
+                    let hand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
+                    
+                    let pData = calculatePenalty(hand, playData);
+                    let p = pData.penalty;
+                    roundScores[i] = -p;
+                    totalPenalty += p;
+                    
+                    let name = i === 0 ? '你' : `AI ${i}`;
+                    detailsHtml += `
+                    <div style="margin-bottom: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
+                        <div style="font-weight: bold; margin-bottom: 3px; font-size: 15px;">${name} <span style="color:#ef5350; float:right;">-${p} 分</span></div>
+                        <div style="font-size: 12px; color: #aaa; line-height: 1.3;">[明細] ${pData.text}</div>
+                    </div>`;
+                }
                 
-                let pData = calculatePenalty(hand, playData);
-                let p = pData.penalty;
-                roundScores[i] = -p;
-                totalPenalty += p;
+                roundScores[playerIndex] = totalPenalty;
+                for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
                 
-                let name = i === 0 ? '你' : `AI ${i}`;
-                detailsHtml += `
-                <div style="margin-bottom: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
-                    <div style="font-weight: bold; margin-bottom: 3px; font-size: 15px;">${name} <span style="color:#ef5350; float:right;">-${p} 分</span></div>
-                    <div style="font-size: 12px; color: #aaa; line-height: 1.3;">[明細] ${pData.text}</div>
-                </div>`;
+                let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
+                let winMsg = playData.type === 'dragon' ? `🏆 贏家 ${winnerName} 以一條龍天胡，狂掃 +${totalPenalty} 分！` : `🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！`;
+                detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">${winMsg}</div></div>`;
+                
+                updateScoreUI();
+
+                document.getElementById('winner-msg').innerText = playerIndex === 0 ? "🎉 恭喜你，你贏了！" : `💀 遊戲結束，${winnerName} 贏了！`;
+                
+                let roundSummaryEl = document.getElementById('round-summary');
+                if (roundSummaryEl) roundSummaryEl.innerHTML = detailsHtml;
+                
+                let modalEl = document.getElementById('gameOverModal');
+                if (modalEl) modalEl.style.display = 'block';
+
+            } catch (e) {
+                console.error("結算錯誤:", e);
+                alert("結算時發生錯誤，請確認已更新最新版 HTML！");
             }
-            
-            roundScores[playerIndex] = totalPenalty;
-            for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
-            
-            let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
-            detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！</div></div>`;
-            
-            updateScoreUI();
-
-            document.getElementById('winner-msg').innerText = playerIndex === 0 ? "🎉 恭喜你，你贏了！" : `💀 遊戲結束，${winnerName} 贏了！`;
-            
-            let roundSummaryEl = document.getElementById('round-summary');
-            if (roundSummaryEl) roundSummaryEl.innerHTML = detailsHtml;
-            
-            let modalEl = document.getElementById('gameOverModal');
-            if (modalEl) modalEl.style.display = 'block';
-            else alert("遊戲結束！" + winnerName + "贏了！(請更新 HTML 檔案以顯示計分板)");
-
-        } catch (e) {
-            console.error("結算錯誤:", e);
-            alert("結算時發生錯誤，請確認已更新最新版 HTML！");
-        }
+        }, playData.type === 'dragon' ? 3000 : 0); // 確保一條龍動畫播完再結算
         return; 
     }
     nextTurn();
@@ -656,7 +721,8 @@ function getGreedyDecomposition(handCards) {
     while (tempHand.length > 0 && turns < 20) {
         let curCombos = findAllCombos(tempHand);
         let toRemove = [];
-        if (curCombos.straightFlush.length > 0) { toRemove = curCombos.straightFlush[0]; }
+        if (curCombos.dragon && curCombos.dragon.length > 0) { toRemove = curCombos.dragon[0]; } // 優先拆龍
+        else if (curCombos.straightFlush.length > 0) { toRemove = curCombos.straightFlush[0]; }
         else if (curCombos.fourOfAKind.length > 0) { toRemove = curCombos.fourOfAKind[0]; }
         else if (curCombos.straight.length > 0) { toRemove = curCombos.straight[0]; }
         else if (curCombos.fullHouse.length > 0) { toRemove = curCombos.fullHouse[0]; }
@@ -683,6 +749,7 @@ function evaluateHandState(handCards) {
     
     decomp.forEach(combo => {
         let p = getHandPower(combo);
+        if (p && p.type === 'dragon') score += 5000;
         if (p && p.type === 'straightFlush') score += 100;
         if (p && p.type === 'fourOfAKind') score += 80;
     });
@@ -730,9 +797,9 @@ function simulateAI(aiIndex) {
             if (pCombos[play.data.type] && pCombos[play.data.type].length > 0) {
                 playerCanBeat = pCombos[play.data.type].some(c => getHandPower(c).power > play.data.power);
             }
-            if (!playerCanBeat && play.data.type !== 'fourOfAKind' && play.data.type !== 'straightFlush') {
-                if (pCombos.fourOfAKind.length > 0 || pCombos.straightFlush.length > 0) playerCanBeat = true;
-            } else if (!playerCanBeat && play.data.type === 'fourOfAKind' && pCombos.straightFlush.length > 0) {
+            if (!playerCanBeat && play.data.type !== 'fourOfAKind' && play.data.type !== 'straightFlush' && play.data.type !== 'dragon') {
+                if (pCombos.fourOfAKind.length > 0 || pCombos.straightFlush.length > 0 || pCombos.dragon.length > 0) playerCanBeat = true;
+            } else if (!playerCanBeat && play.data.type === 'fourOfAKind' && (pCombos.straightFlush.length > 0 || pCombos.dragon.length > 0)) {
                 playerCanBeat = true;
             }
 
@@ -744,7 +811,7 @@ function simulateAI(aiIndex) {
             }
             
             if (isLeading && playerHand.length <= 6) {
-                if (pCombos[play.data.type].length === 0) score += 150; 
+                if (pCombos[play.data.type] && pCombos[play.data.type].length === 0) score += 150; 
                 else score -= 50; 
             }
         }
@@ -754,6 +821,12 @@ function simulateAI(aiIndex) {
     let currentScore = evaluateHandState(aiHand);
 
     if (!gameState.lastPlayed) {
+        // 🌟 如果 AI 有一條龍，管他三七二十一，直接蓋爆全場！ 🌟
+        if (aiCombos.dragon && aiCombos.dragon.length > 0) {
+            executePlay(aiIndex, aiCombos.dragon[0], getHandPower(aiCombos.dragon[0]));
+            return;
+        }
+
         let hasClub3 = aiHand.find(c => c.suit === '♣' && c.value === '3');
         if (gameState.playedCardsHistory.length === 0 && hasClub3) {
             ['single', 'pair', 'straight', 'fullHouse', 'fourOfAKind', 'straightFlush'].forEach(type => {
@@ -768,7 +841,6 @@ function simulateAI(aiIndex) {
             }
         }
 
-        // 🌟 釣魚戰術 (Baiting)：先丟垃圾，扣著大牌等著尾刀！ 🌟
         let decomp = getGreedyDecomposition(aiHand);
         if (decomp.length === 2 && gameState.playedCardsHistory.length > 0) {
             let p0 = getHandPower(decomp[0]); let p1 = getHandPower(decomp[1]);
@@ -787,10 +859,10 @@ function simulateAI(aiIndex) {
                 }
                 
                 if (isSafe) {
-                    executePlay(aiIndex, trashPlay.cards, trashPlay.data); // 放出餌！
+                    executePlay(aiIndex, trashPlay.cards, trashPlay.data); 
                     return;
                 } else {
-                    executePlay(aiIndex, nutsPlay.cards, nutsPlay.data); // 危險！必須直接鎮壓
+                    executePlay(aiIndex, nutsPlay.cards, nutsPlay.data); 
                     return;
                 }
             }
@@ -807,9 +879,27 @@ function simulateAI(aiIndex) {
             return;
         }
     } else {
+        // 🌟 如果 AI 有一條龍，任何時候都可以防守蓋牌！ 🌟
+        if (aiCombos.dragon && aiCombos.dragon.length > 0) {
+            executePlay(aiIndex, aiCombos.dragon[0], getHandPower(aiCombos.dragon[0]));
+            return;
+        }
+
         let targetType = gameState.lastPlayed.type;
         let targetPower = gameState.lastPlayed.power;
         let targetCount = gameState.lastPlayed.cards.length;
+
+        // 如果對手出了一條龍，AI只能放棄（無人能敵）
+        if (targetType === 'dragon') {
+            let cardsContainer = dom.centerTable.querySelector('.cards-container');
+            let cardsHtml = cardsContainer ? cardsContainer.outerHTML : '';
+            dom.centerTable.innerHTML = `<div class="table-msg" style="color:#aaa;">AI ${aiIndex} 選擇 Pass</div>${cardsHtml}`;
+            if (gameState.settings.strictPass) gameState.passedPlayers[aiIndex] = true;
+            logHistory(`AI ${aiIndex} Pass`);
+            gameState.passCount++;
+            nextTurn();
+            return;
+        }
 
         let normalPlays = [];
         aiCombos[targetType].filter(c => getHandPower(c).power > targetPower).forEach(combo => {
