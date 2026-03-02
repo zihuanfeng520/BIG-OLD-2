@@ -1,9 +1,11 @@
+// 🌟 加入計分與局數狀態 🌟
 const gameState = {
     settings: { music: false, pervertMode: false, showHistory: false, playerCount: 4, passRule: 'round', lastRule: 'single_card', aiSpeed: 1500 },
     deck: [], hands: [[], [], [], []], savedCards: [], playedCardsHistory: [], 
     currentTurn: 0, lastPlayed: null, passCount: 0,
     availableCombos: { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [] },
-    comboIndexes: { single: 0, pair: 0, straight: 0, fullHouse: 0, fourOfAKind: 0, straightFlush: 0 }
+    comboIndexes: { single: 0, pair: 0, straight: 0, fullHouse: 0, fourOfAKind: 0, straightFlush: 0 },
+    currentRound: 1, scores: [0, 0, 0, 0]
 };
 
 const suitWeights = { '♣': 1, '♦': 2, '♥': 3, '♠': 4 };
@@ -46,6 +48,15 @@ function updateTracker(playedCards) {
     });
 }
 
+// 🌟 更新 UI 分數顯示 🌟
+function updateScoreUI() {
+    for(let i=0; i<4; i++) {
+        let el = document.getElementById(`score-${i}`);
+        if (el) el.innerText = `${gameState.scores[i] > 0 ? '+' : ''}${gameState.scores[i]}分`;
+    }
+    document.getElementById('round-num').innerText = gameState.currentRound;
+}
+
 document.getElementById('menuSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').style.display = 'block');
 document.getElementById('gameSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').style.display = 'block');
 
@@ -57,10 +68,8 @@ document.getElementById('closeSettingsBtn').addEventListener('click', () => {
     gameState.settings.aiSpeed = parseInt(document.getElementById('setting-ai-speed').value);
     
     if (gameState.settings.music && dom.gameScreen.style.display !== 'none') dom.bgm.play().catch(()=>{}); else dom.bgm.pause();
-    
     dom.historyPanel.style.display = gameState.settings.showHistory ? 'block' : 'none';
     dom.trackerPanel.style.display = gameState.settings.showHistory ? 'flex' : 'none';
-    
     document.getElementById('player-right').style.display = (gameState.settings.playerCount === 3) ? 'none' : 'block';
     document.getElementById('settingsModal').style.display = 'none';
 });
@@ -68,10 +77,19 @@ document.getElementById('closeSettingsBtn').addEventListener('click', () => {
 dom.startGameBtn.addEventListener('click', () => {
     dom.mainMenu.style.display = 'none'; dom.gameScreen.style.display = 'block';
     if (gameState.settings.music) { dom.bgm.play().catch(e => { console.error("音樂播放失敗", e); }); }
+    gameState.currentRound = 1; gameState.scores = [0, 0, 0, 0]; updateScoreUI();
     dealCards();
 });
 
-document.getElementById('playAgainBtn').addEventListener('click', () => { document.getElementById('gameOverModal').style.display = 'none'; dealCards(); });
+// 🌟 新增三個結算按鈕邏輯 🌟
+document.getElementById('nextRoundBtn').addEventListener('click', () => { 
+    document.getElementById('gameOverModal').style.display = 'none'; 
+    gameState.currentRound++; updateScoreUI(); dealCards(); 
+});
+document.getElementById('playAgainBtn').addEventListener('click', () => { 
+    document.getElementById('gameOverModal').style.display = 'none'; 
+    gameState.currentRound = 1; gameState.scores = [0, 0, 0, 0]; updateScoreUI(); dealCards(); 
+});
 document.getElementById('returnMenuBtn').addEventListener('click', () => {
     document.getElementById('gameOverModal').style.display = 'none'; dom.gameScreen.style.display = 'none';
     dom.mainMenu.style.display = 'flex'; dom.bgm.pause();
@@ -123,7 +141,7 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 function updateOpponentCardCount(players) {
     for(let i=1; i<players; i++) {
         let nameEl = document.querySelector(`#player-${i===1?'left':i===2?'top':'right'} .ai-name`);
-        if (nameEl) nameEl.innerText = `AI ${i} (${gameState.hands[i].length}張)`;
+        if (nameEl) nameEl.innerHTML = `AI ${i} <span class="score-badge" id="score-${i}">${gameState.scores[i] >= 0 ? '+' : ''}${gameState.scores[i]}分</span><br>(${gameState.hands[i].length}張)`;
     }
 }
 
@@ -206,8 +224,7 @@ async function dealCards() {
             gameState.hands[0].sort((a, b) => a.weight - b.weight);
             renderMyCards();
         } else {
-            let staticBack = document.createElement('div');
-            staticBack.className = 'card-back';
+            let staticBack = document.createElement('div'); staticBack.className = 'card-back';
             document.getElementById(`ai${club3Owner}-cards`).appendChild(staticBack);
         }
         updateOpponentCardCount(players);
@@ -249,7 +266,6 @@ function getCombinations(arr, k) {
     return combos;
 }
 
-// 🌟 全局組合搜尋 (更新了鐵支 5 張牌的尋找邏輯) 🌟
 function findAllCombos(handCards) {
     let combos = { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [] };
     let hand = [...handCards].sort((a,b) => a.weight - b.weight);
@@ -265,13 +281,8 @@ function findAllCombos(handCards) {
         if (valGroups[val].length >= 2) pairs.push(valGroups[val]);
     }
 
-    // 🌟 鐵支：必須配任意一張單張，組成 5 張 🌟
     fours.forEach(f => {
-        hand.forEach(c => {
-            if (c.value !== f[0].value) { // 找出不同的牌當單張配
-                combos.fourOfAKind.push([...f, c]);
-            }
-        });
+        hand.forEach(c => { if (c.value !== f[0].value) combos.fourOfAKind.push([...f, c]); });
     });
     
     triples.forEach(t => { 
@@ -351,22 +362,18 @@ dom.saveComboBtn.addEventListener('click', () => {
     renderMyCards(); analyzeHandCombos(); 
 });
 
-// 🌟 修正：鐵支為 5 張牌，並嚴格判斷 4 張相同 🌟
 function getHandPower(cards) {
     if (cards.length === 1) return { type: 'single', power: cards[0].weight };
     if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight) };
-    
+    if (cards.length === 4 && new Set(cards.map(c=>c.value)).size === 1) return { type: 'fourOfAKind', power: cards[0].weight * 100 }; // 支援歷史出過4張鐵支
     if (cards.length === 5) {
         let counts = {}; cards.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
         let vals = Object.values(counts);
         
-        // 判斷鐵支 (4張相同 + 1張任意)
         if (vals.includes(4)) {
             let quadVal = Object.keys(counts).find(k => counts[k] === 4);
             return { type: 'fourOfAKind', power: valueWeights[quadVal] * 100 };
         }
-        
-        // 判斷葫蘆 (3張相同 + 2張相同)
         if (vals.includes(3) && vals.includes(2)) {
             let tripleVal = Object.keys(counts).find(k => counts[k] === 3);
             return { type: 'fullHouse', power: valueWeights[tripleVal] * 100 };
@@ -429,6 +436,40 @@ dom.passBtn.addEventListener('click', () => {
     gameState.passCount++; nextTurn();
 });
 
+// 🌟 嚴厲地獄級計分邏輯 🌟
+function calculatePenalty(hand, winnerPlayData) {
+    let count = hand.length;
+    if (count === 0) return 0;
+    
+    let penalty = count; // 基礎分 = 牌數
+    
+    // 超過 10 張扣雙倍
+    if (count >= 10) penalty *= 2; 
+    
+    // 手上有老二，每張扣雙倍
+    let twosCount = hand.filter(c => c.value === '2').length;
+    for(let i=0; i<twosCount; i++) penalty *= 2; 
+
+    // 判斷手上怪物數量 (鐵支、同花順)
+    let valGroups = {}; hand.forEach(c => { valGroups[c.value] = valGroups[c.value] || []; valGroups[c.value].push(c); });
+    let bombsCount = 0;
+    for (let v in valGroups) if (valGroups[v].length >= 4) bombsCount++;
+    
+    let allCombos = findAllCombos(hand);
+    let sfCount = allCombos.straightFlush.length > 0 ? 1 : 0; 
+    let monstersCount = bombsCount + sfCount;
+    for(let i=0; i<monstersCount; i++) penalty *= 2; 
+    
+    // 被贏家 尾張老二/怪物 脫手，大家再加倍
+    if (winnerPlayData.type === 'fourOfAKind' || winnerPlayData.type === 'straightFlush') {
+        penalty *= 2;
+    } else if ((winnerPlayData.type === 'single' || winnerPlayData.type === 'pair') && winnerPlayData.cards[0].value === '2') {
+        penalty *= 2;
+    }
+    
+    return penalty;
+}
+
 function executePlay(playerIndex, cards, playData) {
     gameState.hands[playerIndex] = gameState.hands[playerIndex].filter(c => !cards.includes(c));
     if(playerIndex === 0) gameState.savedCards = gameState.savedCards.filter(c => !cards.includes(c));
@@ -456,10 +497,36 @@ function executePlay(playerIndex, cards, playData) {
     }
     analyzeHandCombos();
     
+    // 🌟 勝利與結算面板觸發 🌟
     let remainingCards = playerIndex === 0 ? (gameState.hands[0].length + gameState.savedCards.length) : gameState.hands[playerIndex].length;
     
     if (remainingCards === 0) {
-        document.getElementById('winner-msg').innerText = playerIndex === 0 ? "🎉 恭喜你，你贏了！" : `💀 遊戲結束，AI ${playerIndex} 贏了！`;
+        let roundScores = [0, 0, 0, 0];
+        let totalPenalty = 0;
+        let detailsHtml = "";
+
+        // 計算輸家懲罰
+        for (let i = 0; i < gameState.settings.playerCount; i++) {
+            if (i === playerIndex) continue;
+            let hand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
+            let p = calculatePenalty(hand, playData);
+            roundScores[i] = -p;
+            totalPenalty += p;
+            let name = i === 0 ? '你' : `AI ${i}`;
+            detailsHtml += `<div>${name} 剩 ${hand.length} 張牌，結算：<span style="color:#ef5350;">${-p} 分</span></div>`;
+        }
+        
+        // 贏家拿走所有分數
+        roundScores[playerIndex] = totalPenalty;
+        for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
+        
+        let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
+        detailsHtml += `<hr style="border:0; border-top:1px dashed #555;"><div style="color:#fbc02d; font-size:16px; text-align:center;">🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！</div>`;
+        
+        updateScoreUI();
+
+        document.getElementById('winner-msg').innerText = playerIndex === 0 ? "🎉 恭喜你，你贏了！" : `💀 遊戲結束，${winnerName} 贏了！`;
+        document.getElementById('round-summary').innerHTML = detailsHtml;
         document.getElementById('gameOverModal').style.display = 'block';
         return; 
     }
@@ -492,6 +559,28 @@ function checkTurn() {
     }
 }
 
+// 🌟 輔助函數：模擬貪婪拆牌取得分解陣列 🌟
+function getGreedyDecomposition(handCards) {
+    let tempHand = [...handCards];
+    let combosPlayed = [];
+    let turns = 0;
+    while (tempHand.length > 0 && turns < 20) {
+        let curCombos = findAllCombos(tempHand);
+        let toRemove = [];
+        if (curCombos.straightFlush.length > 0) { toRemove = curCombos.straightFlush[0]; }
+        else if (curCombos.fourOfAKind.length > 0) { toRemove = curCombos.fourOfAKind[0]; }
+        else if (curCombos.straight.length > 0) { toRemove = curCombos.straight[0]; }
+        else if (curCombos.fullHouse.length > 0) { toRemove = curCombos.fullHouse[0]; }
+        else if (curCombos.pair.length > 0) { toRemove = curCombos.pair[0]; }
+        else { toRemove = [tempHand[0]]; } 
+        
+        combosPlayed.push(toRemove);
+        tempHand = tempHand.filter(c => !toRemove.includes(c));
+        turns++;
+    }
+    return combosPlayed;
+}
+
 function evaluateHandState(handCards) {
     if (handCards.length === 0) return 99999; 
     let score = 0;
@@ -500,24 +589,20 @@ function evaluateHandState(handCards) {
         if (c.value === 'A') score += 20;
     });
 
-    let tempHand = [...handCards];
-    let turns = 0;
-    while (tempHand.length > 0 && turns < 20) {
-        let curCombos = findAllCombos(tempHand);
-        let toRemove = [];
-        if (curCombos.straightFlush.length > 0) { toRemove = curCombos.straightFlush[0]; score += 100; }
-        else if (curCombos.fourOfAKind.length > 0) { toRemove = curCombos.fourOfAKind[0]; score += 80; }
-        else if (curCombos.straight.length > 0) { toRemove = curCombos.straight[0]; }
-        else if (curCombos.fullHouse.length > 0) { toRemove = curCombos.fullHouse[0]; }
-        else if (curCombos.pair.length > 0) { toRemove = curCombos.pair[0]; }
-        else { toRemove = [tempHand[0]]; } 
-        tempHand = tempHand.filter(c => !toRemove.includes(c));
-        turns++;
-    }
-    score -= (turns * 30);
+    let decomp = getGreedyDecomposition(handCards);
+    score -= (decomp.length * 30);
+    
+    // 保護大牌加分
+    decomp.forEach(combo => {
+        let p = getHandPower(combo);
+        if (p && p.type === 'straightFlush') score += 100;
+        if (p && p.type === 'fourOfAKind') score += 80;
+    });
+
     return score;
 }
 
+// 🌟 具備「終局連招」與「長牌起手」的高階 AI 🌟
 function simulateAI(aiIndex) {
     let aiHand = gameState.hands[aiIndex];
     let aiCombos = findAllCombos(aiHand);
@@ -526,30 +611,45 @@ function simulateAI(aiIndex) {
     let isSuppression = false;
     for (let i = 0; i < gameState.settings.playerCount; i++) {
         if (i !== aiIndex && gameState.hands[i].length <= 3) {
-            isSuppression = true;
-            break;
+            isSuppression = true; break;
         }
     }
-
     let currentScore = evaluateHandState(aiHand);
 
     if (!gameState.lastPlayed) {
         let hasClub3 = aiHand.find(c => c.suit === '♣' && c.value === '3');
+        if (gameState.playedCardsHistory.length === 0 && hasClub3) {
+            executePlay(aiIndex, [hasClub3], getHandPower([hasClub3]));
+            return;
+        }
+
+        // 🌟 終局連招 (Endgame Solver)：如果剩兩手牌，且能用炸彈或2強制奪回話語權，立刻發動！ 🌟
+        let decomp = getGreedyDecomposition(aiHand);
+        if (decomp.length === 2 && gameState.playedCardsHistory.length > 0) {
+            let p0 = getHandPower(decomp[0]); let p1 = getHandPower(decomp[1]);
+            let isP0Nuts = p0 && (p0.type === 'fourOfAKind' || p0.type === 'straightFlush' || (p0.type === 'single' && p0.cards[0].value === '2') || (p0.type === 'pair' && p0.cards[0].value === '2'));
+            let isP1Nuts = p1 && (p1.type === 'fourOfAKind' || p1.type === 'straightFlush' || (p1.type === 'single' && p1.cards[0].value === '2') || (p1.type === 'pair' && p1.cards[0].value === '2'));
+
+            if (isP0Nuts && !isP1Nuts) { executePlay(aiIndex, decomp[0], p0); return; } 
+            else if (isP1Nuts && !isP0Nuts) { executePlay(aiIndex, decomp[1], p1); return; }
+        }
+
+        // 起手策略優化：尋找能讓手牌最好的組合
         ['single', 'pair', 'straight', 'fullHouse', 'fourOfAKind', 'straightFlush'].forEach(type => {
-            aiCombos[type].forEach(combo => {
-                if (gameState.playedCardsHistory.length === 0 && hasClub3 && !combo.includes(hasClub3)) return;
-                validPlays.push({ cards: combo, data: getHandPower(combo) });
-            });
+            aiCombos[type].forEach(combo => validPlays.push({ cards: combo, data: getHandPower(combo) }));
         });
+
         validPlays.sort((a, b) => {
             let remainA = aiHand.filter(c => !a.cards.includes(c));
             let remainB = aiHand.filter(c => !b.cards.includes(c));
-            return evaluateHandState(remainB) - evaluateHandState(remainA);
+            // 🌟 額外加權：起手時偏好打出長牌型 (張數越多越優先)，不再總是丟單張 🌟
+            let scoreA = evaluateHandState(remainA) + (a.cards.length * 2);
+            let scoreB = evaluateHandState(remainB) + (b.cards.length * 2);
+            return scoreB - scoreA;
         });
 
         if (validPlays.length > 0) {
-            let bestPlay = validPlays[0];
-            executePlay(aiIndex, bestPlay.cards, bestPlay.data);
+            executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
             return;
         }
     } else {
@@ -570,24 +670,20 @@ function simulateAI(aiIndex) {
         if (validPlays.length > 0) {
             if (isSuppression) {
                 validPlays.sort((a, b) => b.data.power - a.data.power);
-                let bestPlay = validPlays[0];
-                executePlay(aiIndex, bestPlay.cards, bestPlay.data);
+                executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
                 return;
             } else {
                 validPlays = validPlays.filter(play => {
                     let remainHand = aiHand.filter(c => !play.cards.includes(c));
-                    let newScore = evaluateHandState(remainHand);
-                    return newScore >= currentScore - 40; 
+                    return evaluateHandState(remainHand) >= currentScore - 40; 
                 });
-
                 if (validPlays.length > 0) {
                     validPlays.sort((a, b) => {
                         let remainA = aiHand.filter(c => !a.cards.includes(c));
                         let remainB = aiHand.filter(c => !b.cards.includes(c));
                         return evaluateHandState(remainB) - evaluateHandState(remainA);
                     });
-                    let bestPlay = validPlays[0];
-                    executePlay(aiIndex, bestPlay.cards, bestPlay.data);
+                    executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
                     return;
                 }
             }
