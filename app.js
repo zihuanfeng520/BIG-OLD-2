@@ -24,7 +24,7 @@ const dom = {
     trackerGrid: document.getElementById('tracker-grid'),
     playBtn: document.getElementById('playBtn'), passBtn: document.getElementById('passBtn'), saveComboBtn: document.getElementById('saveComboBtn'),
     turnIndicator: document.getElementById('turn-indicator'),
-    volumeSlider: document.getElementById('setting-volume') // 🌟 綁定音量滑桿 🌟
+    volumeSlider: document.getElementById('setting-volume')
 };
 
 function initTracker() {
@@ -59,7 +59,6 @@ function updateScoreUI() {
 document.getElementById('menuSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').style.display = 'block');
 document.getElementById('gameSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').style.display = 'block');
 
-// 🌟 即時監聽音量滑桿 🌟
 dom.volumeSlider.addEventListener('input', (e) => {
     gameState.settings.volume = parseFloat(e.target.value);
     dom.bgm.volume = gameState.settings.volume;
@@ -373,20 +372,20 @@ dom.saveComboBtn.addEventListener('click', () => {
 });
 
 function getHandPower(cards) {
-    if (cards.length === 1) return { type: 'single', power: cards[0].weight };
-    if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight) };
-    if (cards.length === 4 && new Set(cards.map(c=>c.value)).size === 1) return { type: 'fourOfAKind', power: cards[0].weight * 100 };
+    if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
+    if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
+    if (cards.length === 4 && new Set(cards.map(c=>c.value)).size === 1) return { type: 'fourOfAKind', power: cards[0].weight * 100, cards: cards };
     if (cards.length === 5) {
         let counts = {}; cards.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
         let vals = Object.values(counts);
         
         if (vals.includes(4)) {
             let quadVal = Object.keys(counts).find(k => counts[k] === 4);
-            return { type: 'fourOfAKind', power: valueWeights[quadVal] * 100 };
+            return { type: 'fourOfAKind', power: valueWeights[quadVal] * 100, cards: cards };
         }
         if (vals.includes(3) && vals.includes(2)) {
             let tripleVal = Object.keys(counts).find(k => counts[k] === 3);
-            return { type: 'fullHouse', power: valueWeights[tripleVal] * 100 };
+            return { type: 'fullHouse', power: valueWeights[tripleVal] * 100, cards: cards };
         }
         
         let isFlush = new Set(cards.map(c=>c.suit)).size === 1;
@@ -408,8 +407,8 @@ function getHandPower(cards) {
         }
 
         if (isStraight) {
-            if (isFlush) return { type: 'straightFlush', power: straightPower * 1000 };
-            return { type: 'straight', power: straightPower };
+            if (isFlush) return { type: 'straightFlush', power: straightPower * 1000, cards: cards };
+            return { type: 'straight', power: straightPower, cards: cards };
         }
     }
     return null;
@@ -511,14 +510,14 @@ function executePlay(playerIndex, cards, playData) {
             roundScores[i] = -p;
             totalPenalty += p;
             let name = i === 0 ? '你' : `AI ${i}`;
-            detailsHtml += `<div>${name} 剩 ${hand.length} 張牌，結算：<span style="color:#ef5350;">${-p} 分</span></div>`;
+            detailsHtml += `<div style="margin-bottom: 5px;">${name} 剩 ${hand.length} 張牌<br>結算：<span style="color:#ef5350;">${-p} 分</span></div>`;
         }
         
         roundScores[playerIndex] = totalPenalty;
         for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
         
         let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
-        detailsHtml += `<hr style="border:0; border-top:1px dashed #555;"><div style="color:#fbc02d; font-size:16px; text-align:center;">🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！</div>`;
+        detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！</div>`;
         
         updateScoreUI();
 
@@ -597,6 +596,7 @@ function evaluateHandState(handCards) {
     return score;
 }
 
+// 🌟 全新升級：帶有寫輪眼 (變態模式) 的心機 AI 大腦 🌟
 function simulateAI(aiIndex) {
     let aiHand = gameState.hands[aiIndex];
     let aiCombos = findAllCombos(aiHand);
@@ -610,13 +610,55 @@ function simulateAI(aiIndex) {
     }
     let currentScore = evaluateHandState(aiHand);
 
+    // 🌟 變態模式評分外掛：偷看玩家手牌並針對性打擊 🌟
+    function getPlayScore(play, isLeading) {
+        let remainHand = aiHand.filter(c => !play.cards.includes(c));
+        let score = evaluateHandState(remainHand);
+        if (isLeading) score += (play.cards.length * 2);
+
+        // 如果開啟變態模式，AI 將啟動針對玩家的「上帝視角計算」
+        if (gameState.settings.pervertMode) {
+            let playerHand = [...gameState.hands[0], ...gameState.savedCards];
+            let pCombos = findAllCombos(playerHand);
+            
+            let playerCanBeat = false;
+            if (pCombos[play.data.type] && pCombos[play.data.type].length > 0) {
+                playerCanBeat = pCombos[play.data.type].some(c => getHandPower(c).power > play.data.power);
+            }
+            // 判斷玩家是否有炸彈可以壓
+            if (!playerCanBeat && play.data.type !== 'fourOfAKind' && play.data.type !== 'straightFlush') {
+                if (pCombos.fourOfAKind.length > 0 || pCombos.straightFlush.length > 0) playerCanBeat = true;
+            } else if (!playerCanBeat && play.data.type === 'fourOfAKind' && pCombos.straightFlush.length > 0) {
+                playerCanBeat = true;
+            }
+
+            if (!playerCanBeat) {
+                // 玩家要不起！這張牌絕對是神之一手！
+                score += 400; 
+            } else {
+                // 如果玩家要得起...
+                let isPlayerNext = ((aiIndex + 1) % gameState.settings.playerCount) === 0;
+                if (isPlayerNext && playerHand.length <= 4) {
+                    // 玩家是下一家而且快贏了，這手牌打出去就是送死，絕對不打！
+                    score -= 600; 
+                }
+            }
+            
+            // 起手搶奪話語權：專挑玩家「沒有的牌型」打
+            if (isLeading && playerHand.length <= 6) {
+                if (pCombos[play.data.type].length === 0) {
+                    score += 250; // 玩家沒有這種牌型，完美！
+                } else {
+                    score -= 100; // 玩家有，有被蓋過的風險
+                }
+            }
+        }
+        return score;
+    }
+
     if (!gameState.lastPlayed) {
         let hasClub3 = aiHand.find(c => c.suit === '♣' && c.value === '3');
-        if (gameState.playedCardsHistory.length === 0 && hasClub3) {
-            executePlay(aiIndex, [hasClub3], getHandPower([hasClub3]));
-            return;
-        }
-
+        
         let decomp = getGreedyDecomposition(aiHand);
         if (decomp.length === 2 && gameState.playedCardsHistory.length > 0) {
             let p0 = getHandPower(decomp[0]); let p1 = getHandPower(decomp[1]);
@@ -628,16 +670,14 @@ function simulateAI(aiIndex) {
         }
 
         ['single', 'pair', 'straight', 'fullHouse', 'fourOfAKind', 'straightFlush'].forEach(type => {
-            aiCombos[type].forEach(combo => validPlays.push({ cards: combo, data: getHandPower(combo) }));
+            aiCombos[type].forEach(combo => {
+                if (gameState.playedCardsHistory.length === 0 && hasClub3 && !combo.includes(hasClub3)) return;
+                validPlays.push({ cards: combo, data: getHandPower(combo) });
+            });
         });
 
-        validPlays.sort((a, b) => {
-            let remainA = aiHand.filter(c => !a.cards.includes(c));
-            let remainB = aiHand.filter(c => !b.cards.includes(c));
-            let scoreA = evaluateHandState(remainA) + (a.cards.length * 2);
-            let scoreB = evaluateHandState(remainB) + (b.cards.length * 2);
-            return scoreB - scoreA;
-        });
+        // 套用包含變態模式的外掛評分排序
+        validPlays.sort((a, b) => getPlayScore(b, true) - getPlayScore(a, true));
 
         if (validPlays.length > 0) {
             executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
@@ -660,20 +700,28 @@ function simulateAI(aiIndex) {
 
         if (validPlays.length > 0) {
             if (isSuppression) {
-                validPlays.sort((a, b) => b.data.power - a.data.power);
+                // 壓制模式下，如果有變態模式加持，用智能評分，否則無腦丟最大
+                if (gameState.settings.pervertMode) {
+                    validPlays.sort((a, b) => getPlayScore(b, false) - getPlayScore(a, false));
+                } else {
+                    validPlays.sort((a, b) => b.data.power - a.data.power);
+                }
                 executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
                 return;
             } else {
                 validPlays = validPlays.filter(play => {
-                    let remainHand = aiHand.filter(c => !play.cards.includes(c));
-                    return evaluateHandState(remainHand) >= currentScore - 40; 
+                    let rHand = aiHand.filter(c => !play.cards.includes(c));
+                    let rScore = evaluateHandState(rHand);
+                    // 在變態模式下，如果這牌能卡死玩家，就算破壞手牌結構也要出！
+                    if (gameState.settings.pervertMode) {
+                        let pScore = getPlayScore(play, false);
+                        if (pScore > currentScore + 100) return true; 
+                    }
+                    return rScore >= currentScore - 40; 
                 });
+
                 if (validPlays.length > 0) {
-                    validPlays.sort((a, b) => {
-                        let remainA = aiHand.filter(c => !a.cards.includes(c));
-                        let remainB = aiHand.filter(c => !b.cards.includes(c));
-                        return evaluateHandState(remainB) - evaluateHandState(remainA);
-                    });
+                    validPlays.sort((a, b) => getPlayScore(b, false) - getPlayScore(a, false));
                     executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
                     return;
                 }
