@@ -4,9 +4,10 @@ if (isMobile) {
 }
 
 const gameState = {
-    settings: { music: false, volume: 0.5, pervertMode: false, showHistory: false, playerCount: 4, passRule: 'round', lastRule: 'single_card', aiSpeed: 1500 },
+    settings: { music: false, volume: 0.5, pervertMode: false, strictPass: false, showHistory: false, playerCount: 4, aiSpeed: 1500 },
     deck: [], hands: [[], [], [], []], savedCards: [], playedCardsHistory: [], 
     currentTurn: 0, lastPlayed: null, passCount: 0,
+    passedPlayers: [false, false, false, false],
     availableCombos: { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [] },
     comboIndexes: { single: 0, pair: 0, straight: 0, fullHouse: 0, fourOfAKind: 0, straightFlush: 0 },
     currentRound: 1, scores: [0, 0, 0, 0]
@@ -91,6 +92,7 @@ document.getElementById('closeSettingsBtn').addEventListener('click', () => {
     gameState.settings.music = document.getElementById('setting-music').checked;
     gameState.settings.volume = parseFloat(dom.volumeSlider.value);
     gameState.settings.pervertMode = document.getElementById('setting-pervert').checked;
+    gameState.settings.strictPass = document.getElementById('setting-strict-pass').checked;
     gameState.settings.showHistory = document.getElementById('setting-history').checked;
     gameState.settings.playerCount = newPlayerCount;
     gameState.settings.aiSpeed = parseInt(document.getElementById('setting-ai-speed').value);
@@ -191,6 +193,8 @@ async function dealCards() {
     
     gameState.deck = rawDeck; gameState.hands = [[], [], [], []]; gameState.savedCards = [];
     gameState.playedCardsHistory = []; gameState.lastPlayed = null; gameState.passCount = 0;
+    gameState.passedPlayers = [false, false, false, false]; 
+    
     dom.historyList.innerHTML = ''; dom.myCards.innerHTML = ''; dom.savedCards.innerHTML = '';
     for(let i=1; i<=3; i++) document.getElementById(`ai${i}-cards`).innerHTML = '';
     dom.saveComboBtn.innerText = "保存組合 >>";
@@ -305,7 +309,6 @@ function getCombinations(arr, k) {
     return combos;
 }
 
-// 🌟 修正：葫蘆、鐵支的副牌權重演算法，確保優先挑選最小的副牌 🌟
 function getHandPower(cards) {
     if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
     if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
@@ -318,14 +321,12 @@ function getHandPower(cards) {
         if (vals.includes(4)) {
             let quadVal = Object.keys(counts).find(k => counts[k] === 4);
             let kickerVal = Object.keys(counts).find(k => counts[k] === 1);
-            // 主戰力 × 100，加上副牌戰力作為小數點，保證副牌越小，在陣列裡越前面
             let power = valueWeights[quadVal] * 100 + (valueWeights[kickerVal] || 0);
             return { type: 'fourOfAKind', power: power, cards: cards };
         }
         if (vals.includes(3) && vals.includes(2)) {
             let tripleVal = Object.keys(counts).find(k => counts[k] === 3);
             let pairVal = Object.keys(counts).find(k => counts[k] === 2);
-            // 同上，保證葫蘆選對子時，對 3 會排在對 2 前面！
             let power = valueWeights[tripleVal] * 100 + (valueWeights[pairVal] || 0);
             return { type: 'fullHouse', power: power, cards: cards };
         }
@@ -479,8 +480,11 @@ dom.passBtn.addEventListener('click', () => {
     let cardsHtml = cardsContainer ? cardsContainer.outerHTML : '';
     dom.centerTable.innerHTML = `<div class="table-msg" style="color:#aaa;">你 選擇 Pass</div>${cardsHtml}`;
     
+    if (gameState.settings.strictPass) gameState.passedPlayers[0] = true;
+    
     logHistory(`玩家 Pass`);
-    gameState.passCount++; nextTurn();
+    gameState.passCount++; 
+    nextTurn();
 });
 
 function calculatePenalty(hand, winnerPlayData) {
@@ -530,7 +534,7 @@ function executePlay(playerIndex, cards, playData) {
     if(playerIndex === 0 && gameState.savedCards.length === 0) dom.saveComboBtn.innerText = "保存組合 >>"; 
     
     gameState.lastPlayed = { player: playerIndex, type: playData.type, cards: cards, power: playData.power };
-    gameState.passCount = 0; 
+    if (!gameState.settings.strictPass) gameState.passCount = 0; 
     
     let playerName = playerIndex === 0 ? '你' : 'AI ' + playerIndex;
     let typeStr = typeNames[playData.type] || '未知';
@@ -609,10 +613,27 @@ function logHistory(msg) {
 }
 
 function nextTurn() {
-    gameState.currentTurn = (gameState.currentTurn + 1) % gameState.settings.playerCount;
-    if (gameState.passCount >= gameState.settings.playerCount - 1) {
-        gameState.lastPlayed = null; gameState.passCount = 0;
-        dom.centerTable.innerHTML = `<div class="table-msg">大家都 Pass<br>由 ${gameState.currentTurn === 0 ? '你' : 'AI '+gameState.currentTurn} 重新出牌</div>`;
+    if (gameState.settings.strictPass && gameState.lastPlayed) {
+        let nextP = (gameState.currentTurn + 1) % gameState.settings.playerCount;
+        while (gameState.passedPlayers[nextP] && nextP !== gameState.lastPlayed.player) {
+            nextP = (nextP + 1) % gameState.settings.playerCount;
+        }
+        gameState.currentTurn = nextP;
+
+        if (gameState.currentTurn === gameState.lastPlayed.player) {
+            gameState.lastPlayed = null;
+            gameState.passCount = 0;
+            gameState.passedPlayers = [false, false, false, false];
+            dom.centerTable.innerHTML = `<div class="table-msg">大家都 Pass<br>由 ${gameState.currentTurn === 0 ? '你' : 'AI '+gameState.currentTurn} 重新出牌</div>`;
+        }
+    } else {
+        gameState.currentTurn = (gameState.currentTurn + 1) % gameState.settings.playerCount;
+        if (gameState.passCount >= gameState.settings.playerCount - 1) {
+            gameState.lastPlayed = null;
+            gameState.passCount = 0;
+            gameState.passedPlayers = [false, false, false, false];
+            dom.centerTable.innerHTML = `<div class="table-msg">大家都 Pass<br>由 ${gameState.currentTurn === 0 ? '你' : 'AI '+gameState.currentTurn} 重新出牌</div>`;
+        }
     }
     checkTurn();
 }
@@ -683,6 +704,8 @@ function simulateAI(aiIndex) {
         }
     }
     
+    let passThreshold = gameState.settings.strictPass ? 80 : 40;
+
     function getPlayScore(play, isLeading) {
         let remainHand = aiHand.filter(c => !play.cards.includes(c));
         let score = evaluateHandState(remainHand);
@@ -745,14 +768,32 @@ function simulateAI(aiIndex) {
             }
         }
 
+        // 🌟 釣魚戰術 (Baiting)：先丟垃圾，扣著大牌等著尾刀！ 🌟
         let decomp = getGreedyDecomposition(aiHand);
         if (decomp.length === 2 && gameState.playedCardsHistory.length > 0) {
             let p0 = getHandPower(decomp[0]); let p1 = getHandPower(decomp[1]);
             let isP0Nuts = p0 && (p0.type === 'fourOfAKind' || p0.type === 'straightFlush' || (p0.type === 'single' && p0.cards[0].value === '2') || (p0.type === 'pair' && p0.cards[0].value === '2'));
             let isP1Nuts = p1 && (p1.type === 'fourOfAKind' || p1.type === 'straightFlush' || (p1.type === 'single' && p1.cards[0].value === '2') || (p1.type === 'pair' && p1.cards[0].value === '2'));
 
-            if (isP0Nuts && !isP1Nuts) { executePlay(aiIndex, decomp[0], p0); return; } 
-            else if (isP1Nuts && !isP0Nuts) { executePlay(aiIndex, decomp[1], p1); return; }
+            let nutsPlay = null;
+            let trashPlay = null;
+            if (isP0Nuts && !isP1Nuts) { nutsPlay = { cards: decomp[0], data: p0 }; trashPlay = { cards: decomp[1], data: p1 }; } 
+            else if (isP1Nuts && !isP0Nuts) { nutsPlay = { cards: decomp[1], data: p1 }; trashPlay = { cards: decomp[0], data: p0 }; }
+
+            if (nutsPlay && trashPlay) {
+                let isSafe = true;
+                for (let i = 0; i < gameState.settings.playerCount; i++) {
+                    if (i !== aiIndex && gameState.hands[i].length <= trashPlay.cards.length) isSafe = false;
+                }
+                
+                if (isSafe) {
+                    executePlay(aiIndex, trashPlay.cards, trashPlay.data); // 放出餌！
+                    return;
+                } else {
+                    executePlay(aiIndex, nutsPlay.cards, nutsPlay.data); // 危險！必須直接鎮壓
+                    return;
+                }
+            }
         }
 
         ['single', 'pair', 'straight', 'fullHouse', 'fourOfAKind', 'straightFlush'].forEach(type => {
@@ -785,7 +826,6 @@ function simulateAI(aiIndex) {
 
         validPlays = [...normalPlays];
 
-        // 🌟 修正「大砲打蚊子」：防守時，只有在危急時刻才准動用怪物！ 🌟
         if (normalPlays.length === 0 || minEnemyCards <= targetCount || minEnemyCards <= 2) {
             validPlays = validPlays.concat(bombPlays);
         }
@@ -797,7 +837,6 @@ function simulateAI(aiIndex) {
                     executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
                     return;
                 } else {
-                    // 壓制模式下，分離出普通牌，優先用普通牌的最大張去頂，扣留炸彈！
                     let safePlays = validPlays.filter(p => p.data.type === targetType);
                     if (safePlays.length > 0 && minEnemyCards > targetCount && minEnemyCards > 1) {
                         safePlays.sort((a, b) => b.data.power - a.data.power);
@@ -816,7 +855,7 @@ function simulateAI(aiIndex) {
                         let pScore = getPlayScore(play, false);
                         if (pScore > currentScore + 100) return true; 
                     }
-                    return evaluateHandState(rHand) >= currentScore - 40; 
+                    return evaluateHandState(rHand) >= currentScore - passThreshold; 
                 });
 
                 if (validPlays.length > 0) {
@@ -831,6 +870,8 @@ function simulateAI(aiIndex) {
     let cardsContainer = dom.centerTable.querySelector('.cards-container');
     let cardsHtml = cardsContainer ? cardsContainer.outerHTML : '';
     dom.centerTable.innerHTML = `<div class="table-msg" style="color:#aaa;">AI ${aiIndex} 選擇 Pass</div>${cardsHtml}`;
+    
+    if (gameState.settings.strictPass) gameState.passedPlayers[aiIndex] = true;
     
     logHistory(`AI ${aiIndex} Pass`);
     gameState.passCount++;
