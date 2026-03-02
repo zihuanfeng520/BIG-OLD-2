@@ -65,12 +65,30 @@ dom.volumeSlider.addEventListener('input', (e) => {
     dom.bgm.volume = gameState.settings.volume;
 });
 
+// 🌟 核心防呆：遊戲中途切換人數的警告彈窗 🌟
 document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+    let newPlayerCount = parseInt(document.getElementById('setting-player-count').value);
+    let applyCountChange = false;
+
+    if (newPlayerCount !== gameState.settings.playerCount) {
+        if (dom.gameScreen.style.display !== 'none') {
+            let confirmSwitch = confirm("如果遊戲中切換，會喪失所有紀錄並開啟新一輪牌局。請問是否繼續？");
+            if (confirmSwitch) {
+                applyCountChange = true;
+            } else {
+                document.getElementById('setting-player-count').value = gameState.settings.playerCount;
+                newPlayerCount = gameState.settings.playerCount;
+            }
+        } else {
+            applyCountChange = true;
+        }
+    }
+
     gameState.settings.music = document.getElementById('setting-music').checked;
     gameState.settings.volume = parseFloat(dom.volumeSlider.value);
     gameState.settings.pervertMode = document.getElementById('setting-pervert').checked;
     gameState.settings.showHistory = document.getElementById('setting-history').checked;
-    gameState.settings.playerCount = parseInt(document.getElementById('setting-player-count').value);
+    gameState.settings.playerCount = newPlayerCount;
     gameState.settings.aiSpeed = parseInt(document.getElementById('setting-ai-speed').value);
     
     dom.bgm.volume = gameState.settings.volume;
@@ -82,6 +100,13 @@ document.getElementById('closeSettingsBtn').addEventListener('click', () => {
     
     document.getElementById('player-right').style.display = (gameState.settings.playerCount === 3) ? 'none' : 'block';
     document.getElementById('settingsModal').style.display = 'none';
+
+    if (applyCountChange && dom.gameScreen.style.display !== 'none') {
+        gameState.currentRound = 1; 
+        gameState.scores = [0, 0, 0, 0]; 
+        updateScoreUI();
+        dealCards();
+    }
 });
 
 dom.startGameBtn.addEventListener('click', () => {
@@ -372,6 +397,7 @@ dom.saveComboBtn.addEventListener('click', () => {
     renderMyCards(); analyzeHandCombos(); 
 });
 
+// 🌟 核心防當機：確保每種牌型都回傳 cards 🌟
 function getHandPower(cards) {
     if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
     if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
@@ -447,7 +473,7 @@ dom.passBtn.addEventListener('click', () => {
     gameState.passCount++; nextTurn();
 });
 
-// 🌟 全新升級：帶有「雙倍扣分明細」的計分系統 🌟
+// 🌟 透明化計分明細系統 🌟
 function calculatePenalty(hand, winnerPlayData) {
     let count = hand.length;
     if (count === 0) return { penalty: 0, text: '' };
@@ -516,43 +542,47 @@ function executePlay(playerIndex, cards, playData) {
     }
     analyzeHandCombos();
     
+    // 🌟 結算面板渲染邏輯 🌟
     let remainingCards = playerIndex === 0 ? (gameState.hands[0].length + gameState.savedCards.length) : gameState.hands[playerIndex].length;
     
     if (remainingCards === 0) {
-        let roundScores = [0, 0, 0, 0];
-        let totalPenalty = 0;
-        let detailsHtml = `<div style="max-height: 250px; overflow-y: auto;">`; // 避免明細太長爆版
+        try {
+            let roundScores = [0, 0, 0, 0];
+            let totalPenalty = 0;
+            let detailsHtml = `<div style="max-height: 250px; overflow-y: auto;">`; 
 
-        for (let i = 0; i < gameState.settings.playerCount; i++) {
-            if (i === playerIndex) continue;
-            let hand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
+            for (let i = 0; i < gameState.settings.playerCount; i++) {
+                if (i === playerIndex) continue;
+                let hand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
+                
+                let pData = calculatePenalty(hand, playData);
+                let p = pData.penalty;
+                roundScores[i] = -p;
+                totalPenalty += p;
+                
+                let name = i === 0 ? '你' : `AI ${i}`;
+                detailsHtml += `
+                <div style="margin-bottom: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
+                    <div style="font-weight: bold; margin-bottom: 3px; font-size: 15px;">${name} <span style="color:#ef5350; float:right;">-${p} 分</span></div>
+                    <div style="font-size: 12px; color: #aaa; line-height: 1.3;">[明細] ${pData.text}</div>
+                </div>`;
+            }
             
-            // 使用新版算分系統取得明細
-            let pData = calculatePenalty(hand, playData);
-            let p = pData.penalty;
-            roundScores[i] = -p;
-            totalPenalty += p;
+            roundScores[playerIndex] = totalPenalty;
+            for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
             
-            let name = i === 0 ? '你' : `AI ${i}`;
-            // 將明細完美渲染在畫面上
-            detailsHtml += `
-            <div style="margin-bottom: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
-                <div style="font-weight: bold; margin-bottom: 3px; font-size: 15px;">${name} <span style="color:#ef5350; float:right;">-${p} 分</span></div>
-                <div style="font-size: 12px; color: #aaa; line-height: 1.3;">[明細] ${pData.text}</div>
-            </div>`;
+            let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
+            detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！</div></div>`;
+            
+            updateScoreUI();
+
+            document.getElementById('winner-msg').innerText = playerIndex === 0 ? "🎉 恭喜你，你贏了！" : `💀 遊戲結束，${winnerName} 贏了！`;
+            document.getElementById('round-summary').innerHTML = detailsHtml;
+            document.getElementById('gameOverModal').style.display = 'block';
+        } catch (e) {
+            console.error("結算錯誤:", e);
+            alert("結算時發生錯誤，但遊戲已結束！");
         }
-        
-        roundScores[playerIndex] = totalPenalty;
-        for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
-        
-        let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
-        detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！</div></div>`;
-        
-        updateScoreUI();
-
-        document.getElementById('winner-msg').innerText = playerIndex === 0 ? "🎉 恭喜你，你贏了！" : `💀 遊戲結束，${winnerName} 贏了！`;
-        document.getElementById('round-summary').innerHTML = detailsHtml;
-        document.getElementById('gameOverModal').style.display = 'block';
         return; 
     }
     nextTurn();
@@ -668,7 +698,7 @@ function simulateAI(aiIndex) {
             }
 
             if (!playerCanBeat) {
-                // 🌟 修復：如果變態模式開啟，只有在「防守(跟牌)」時才無腦加分，起手(先手)不要亂丟大牌炫耀 🌟
+                // 🌟 修正過度表現：變態模式下，只有「非起手(跟牌)」時，才無腦出神牌！ 🌟
                 if (!isLeading) score += 400; 
             } else {
                 let isPlayerNext = ((aiIndex + 1) % gameState.settings.playerCount) === 0;
@@ -688,7 +718,6 @@ function simulateAI(aiIndex) {
     if (!gameState.lastPlayed) {
         let hasClub3 = aiHand.find(c => c.suit === '♣' && c.value === '3');
         if (gameState.playedCardsHistory.length === 0 && hasClub3) {
-            // 首局出包含梅花3的最好組合
             ['single', 'pair', 'straight', 'fullHouse', 'fourOfAKind', 'straightFlush'].forEach(type => {
                 aiCombos[type].forEach(combo => {
                     if (combo.includes(hasClub3)) validPlays.push({ cards: combo, data: getHandPower(combo) });
