@@ -16,13 +16,11 @@ body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: 
 .primary-bg { background-color: #43a047 !important; }
 .danger-bg { background-color: #e53935 !important; }
 
-.turn-indicator { 
-    font-size: 18px; color: #fbc02d; font-weight: bold; text-align: center; 
-    margin-top: 15px; margin-bottom: -5px; min-height: 25px; 
-    letter-spacing: 3px; text-shadow: 0 0 10px rgba(251, 192, 45, 0.8); 
-    animation: pulseTurn 1s infinite alternate; 
-    display: flex; justify-content: center; align-items: center; gap: 12px;
-}
+/* 🌟 分數與局數 UI 設計 🌟 */
+.round-info { position: absolute; left: 50%; transform: translateX(-50%); color: #fff; font-size: 16px; font-weight: bold; background: rgba(251, 192, 45, 0.2); padding: 4px 15px; border-radius: 20px; border: 1px solid #fbc02d; text-shadow: 1px 1px 2px #000; }
+.score-badge { color: #fbc02d; font-weight: bold; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 6px; margin-left: 8px; font-size: 13px; border: 1px solid rgba(251, 192, 45, 0.4); display: inline-block; }
+
+.turn-indicator { font-size: 18px; color: #fbc02d; font-weight: bold; text-align: center; margin-top: 15px; margin-bottom: -5px; min-height: 25px; letter-spacing: 3px; text-shadow: 0 0 10px rgba(251, 192, 45, 0.8); animation: pulseTurn 1s infinite alternate; display: flex; justify-content: center; align-items: center; gap: 12px; }
 .turn-indicator::before { content: ""; display: block; width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 12px solid #fbc02d; }
 .turn-indicator::after { content: ""; display: block; width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 12px solid #fbc02d; }
 @keyframes pulseTurn { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.05); opacity: 1; text-shadow: 0 0 20px rgba(251, 192, 45, 1); } }
@@ -30,14 +28,14 @@ body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: 
 .gear-btn { width: 32px; height: 32px; border: none; cursor: pointer; background-color: transparent; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23bbbbbb'%3E%3Cpath d='M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z'/%3E%3C/svg%3E"); background-size: contain; background-repeat: no-repeat; transition: transform 0.4s; }
 .gear-btn:hover { transform: rotate(90deg); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fbc02d'%3E%3Cpath d='M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z'/%3E%3C/svg%3E"); }
 
-.header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); }
-.header h1 { margin: 0; font-size: 20px; color: #ddd; }
+.header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); position: relative; }
+.header h1 { margin: 0; font-size: 20px; color: #ddd; width: 100px;}
 .game-board { position: relative; width: 100vw; height: calc(100vh - 50px); }
 .player-area { position: absolute; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(5px); z-index: 10; }
 
 #player-top { top: 10px; left: 50%; transform: translateX(-50%); width: 450px; height: 110px; }
-#player-left { top: 50%; left: 10px; transform: translateY(-50%); width: 110px; height: 400px; }
-#player-right { top: 50%; right: 10px; transform: translateY(-50%); width: 110px; height: 400px; }
+#player-left { top: 50%; left: 10px; transform: translateY(-50%); width: 120px; height: 400px; }
+#player-right { top: 50%; right: 10px; transform: translateY(-50%); width: 120px; height: 400px; }
 #player-bottom { bottom: 10px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 1000px; }
 
 .ai-name { font-size: 14px; color: #ccc; text-align: center; margin-bottom: 5px; font-weight: bold; text-shadow: 1px 1px 2px #000; }
@@ -116,19 +114,18 @@ body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: 
 .action-buttons { margin-top: 15px; display: flex; justify-content: center; gap: 15px; }
 
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 2000; }
-.modal-content { background: #1a1a1a; width: 90%; max-width: 400px; margin: 10vh auto; padding: 30px; border-radius: 12px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.9); display: flex; flex-direction: column; gap: 15px; }
+.modal-content { background: #1a1a1a; width: 90%; max-width: 450px; margin: 10vh auto; padding: 30px; border-radius: 12px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.9); display: flex; flex-direction: column; gap: 15px; }
 .center-content { text-align: center; }
 .modal-title { margin: 0 0 15px 0; color: #fbc02d; font-size: 24px; border-bottom: 1px solid #333; padding-bottom: 10px; }
 .setting-item { display: flex; align-items: center; justify-content: space-between; font-size: 15px; color: #ccc; cursor: pointer; padding: 6px 0; }
 .setting-item select { background: #2b2b2b; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; outline: none; }
 .modal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
 
-/* 🌟 手機版完美適配 RWD 🌟 */
 @media screen and (max-width: 768px) {
     .game-title { font-size: 40px; margin-bottom: 30px; }
+    .round-info { font-size: 12px; padding: 2px 10px; }
     #player-bottom { width: 100%; bottom: 0; padding-bottom: 5px; }
     
-    /* 手機上的卡牌縮小，擠在一起 */
     .card { width: 50px; height: 75px; border-radius: 4px; }
     .single-row .card { margin-left: -32px; }
     #my-cards .card-back { margin-left: -32px; }
@@ -137,25 +134,23 @@ body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: 
     .pip-A { font-size: 26px; margin-top: -13px; margin-left: -13px; }
     .face-icon { font-size: 24px; }
     
-    /* 桌面變小 */
     #center-table { width: 90%; min-height: 140px; padding: 10px; top: 35%; }
     .card.mini { width: 42px; height: 60px; }
     .single-row .card.mini { margin-left: -25px; }
     .card.mini .card-corner { font-size: 10px; }
     .card.mini .face-icon { font-size: 20px; }
     
-    /* AI 區域移到螢幕邊緣縮小 */
     #player-top { width: 100%; top: 5px; }
-    #player-left { width: 60px; height: 250px; left: 0; top: 40%; }
-    #player-right { width: 60px; height: 250px; right: 0; top: 40%; }
+    #player-left { width: 70px; height: 250px; left: 0; top: 40%; }
+    #player-right { width: 70px; height: 250px; right: 0; top: 40%; }
     .ai-name { font-size: 11px; }
+    .score-badge { font-size: 10px; padding: 1px 4px; display: block; margin-top: 2px; margin-left: 0; }
     .card-back { width: 35px; height: 50px; }
     .ai-cards-container.horiz .card-back { margin-left: -22px; }
     .ai-cards-container.vert .card-back { margin-top: -38px; }
 
-    /* 面板縮小或隱藏避免擋畫面 */
-    #history-panel { left: 60px; top: 50px; width: 150px; height: 120px; transform: scale(0.8); transform-origin: top left; }
-    #tracker-panel { right: 60px; top: 50px; width: 280px; height: 150px; transform: scale(0.7); transform-origin: top right; }
+    #history-panel { left: 70px; top: 50px; width: 150px; height: 120px; transform: scale(0.8); transform-origin: top left; }
+    #tracker-panel { right: 70px; top: 50px; width: 280px; height: 150px; transform: scale(0.7); transform-origin: top right; }
 
     .player-hand-wrapper { flex-direction: column; gap: 5px; align-items: center; }
     .main-hand, .saved-hand { max-width: 95%; padding: 5px 10px; min-width: unset; }
