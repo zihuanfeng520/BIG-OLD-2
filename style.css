@@ -132,6 +132,7 @@ body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: 
 .split-row select { background: #2b2b2b; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 5px; font-size: 14px; cursor: pointer; outline: none; }
 .split-row select:focus { border-color: #fbc02d; }
 
+.music-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .volume-control { display: flex; align-items: center; gap: 8px; width: 140px; justify-content: flex-end; }
 .volume-control span { font-size: 18px; line-height: 1; }
 .volume-control input[type="range"] { -webkit-appearance: none; width: 100px; height: 6px; background: #444; border-radius: 3px; outline: none; }
@@ -140,60 +141,53 @@ body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: 
 
 .modal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
 
+/* 🌟 手機版完美適配 RWD (使用 transform: scale 解決模糊與擁擠) 🌟 */
 @media screen and (max-width: 768px) {
-    .game-title { font-size: 40px; margin-bottom: 30px; }
+    .game-title { font-size: 32px; margin-bottom: 20px; }
     .header h1 { font-size: 14px; width: 80px; }
     .round-info { font-size: 12px; padding: 2px 8px; }
     .gear-btn { width: 26px; height: 26px; }
     
-    #player-bottom { width: 100%; bottom: 0; padding: 5px; z-index: 20; } 
+    #player-bottom { width: 100%; bottom: 0; padding: 5px; z-index: 20; }
     
-    .card { width: 40px; height: 60px; border-radius: 4px; box-shadow: -1px 1px 3px rgba(0,0,0,0.5); }
-    .single-row .card { margin-left: -26px; } 
-    .single-row .card:hover { transform: translateY(-10px); margin-right: 8px; }
-    .card.selected { transform: translateY(-15px) !important; }
-    
-    #my-cards .card-back { margin-left: -26px; width: 40px; height: 60px; }
-    
-    .card-corner { font-size: 10px; padding: 2px; }
-    .pip { font-size: 8px; width: 8px; height: 8px; margin-left: -4px; margin-top: -4px; }
-    .pip-A { font-size: 20px; margin-top: -10px; margin-left: -10px; }
-    .face-icon { font-size: 18px; }
-    .face-card { width: 60%; height: 60%; top: 20%; left: 20%; }
-    
+    .player-hand-wrapper { flex-direction: column; gap: 5px; align-items: center; margin-top: 5px; overflow: visible; }
+    .main-hand { max-width: 100%; padding: 5px; background: rgba(0,0,0,0.5); border: none; overflow: visible; }
+    .saved-hand { width: 100%; min-width: 100%; padding: 5px; background: rgba(0,0,0,0.5); border: none; overflow: visible; }
+    .area-title { font-size: 12px; margin-bottom: 2px; }
+
+    /* 高清縮放外掛：容器縮放，讓卡牌維持原生畫質不模糊 */
+    .main-hand .cards-container, .saved-hand .cards-container {
+        transform: scale(0.65);
+        transform-origin: top center;
+        min-height: 70px;
+        padding-top: 5px;
+        margin-bottom: -30px; 
+    }
+
     #center-table { width: 100%; min-height: 100px; padding: 5px; top: 40%; background: transparent; border: none; z-index: 5; }
     .table-msg { font-size: 13px; margin-bottom: 5px; text-shadow: 1px 1px 2px #000; }
-    .card.mini { width: 35px; height: 50px; }
-    .single-row .card.mini { margin-left: -20px; }
-    .card.mini .card-corner { font-size: 8px; }
-    .card.mini .face-icon { font-size: 14px; }
-    .card.mini .pip-A { font-size: 16px; margin-top: -8px; margin-left: -8px; }
-    
-    #player-top { width: 100%; top: 45px; height: auto; padding: 2px; background: transparent; border: none; }
-    #player-left { width: 60px; height: 200px; left: 0; top: 45%; padding: 2px; background: transparent; border: none; }
-    #player-right { width: 60px; height: 200px; right: 0; top: 45%; padding: 2px; background: transparent; border: none; }
-    .ai-name { font-size: 10px; margin-bottom: 2px; }
-    .score-badge { font-size: 9px; padding: 1px 3px; display: inline-block; margin-top: 2px; margin-left: 0; }
-    
-    .card-back { width: 20px; height: 30px; border-width: 1px; }
-    .ai-cards-container.horiz .card-back { margin-left: -12px; }
-    .ai-cards-container.vert .card-back { margin-top: -22px; transform: rotate(90deg); }
-    
-    #history-panel { left: 5px; top: 50px; width: 110px; height: 100px; font-size: 9px; padding: 5px; opacity: 0.85; }
-    #history-panel h3 { font-size: 10px; margin-bottom: 3px; }
-    #history-panel li { margin-bottom: 3px; }
-    
-    #tracker-panel { right: 5px; top: 50px; width: 160px; height: 100px; padding: 5px; opacity: 0.85; }
-    #tracker-panel h3 { font-size: 10px; margin-bottom: 3px; }
-    .tracker-cell { font-size: 8px; border-radius: 1px; }
-    .tracker-cell span:last-child { font-size: 7px !important; }
+    #center-table .cards-container {
+        transform: scale(0.7);
+        transform-origin: top center;
+        min-height: 60px;
+        margin-bottom: -20px;
+    }
 
-    .player-hand-wrapper { flex-direction: column; gap: 2px; align-items: center; margin-top: 2px; }
-    .main-hand { max-width: 100%; padding: 5px; background: rgba(0,0,0,0.5); border: none; }
-    .saved-hand { width: 100%; min-width: 100%; padding: 5px; background: rgba(0,0,0,0.5); border: none; }
-    .cards-container { padding-top: 15px; min-height: 65px; }
-    .area-title { font-size: 11px; margin-bottom: 2px; }
-    
+    #player-top { width: 100%; top: 40px; height: auto; padding: 2px; background: transparent; border: none; }
+    #player-top .ai-cards-container { transform: scale(0.6); transform-origin: top center; min-height: 45px; margin-bottom: -20px; }
+
+    #player-left { width: 60px; height: 200px; left: 0; top: 45%; padding: 2px; background: transparent; border: none; }
+    #player-left .ai-cards-container { transform: scale(0.6); transform-origin: left center; width: 30px; }
+
+    #player-right { width: 60px; height: 200px; right: 0; top: 45%; padding: 2px; background: transparent; border: none; }
+    #player-right .ai-cards-container { transform: scale(0.6); transform-origin: right center; width: 30px; }
+
+    .ai-name { font-size: 11px; margin-bottom: 2px; }
+    .score-badge { font-size: 10px; padding: 1px 3px; display: inline-block; margin-top: 2px; margin-left: 0; }
+
+    #history-panel { left: 5px; top: 45px; width: 140px; height: 110px; transform: scale(0.75); transform-origin: top left; padding: 5px; opacity: 0.85; }
+    #tracker-panel { right: 5px; top: 45px; width: 220px; height: 110px; transform: scale(0.75); transform-origin: top right; padding: 5px; opacity: 0.85; }
+
     .shortcut-buttons { 
         display: flex; flex-wrap: nowrap; overflow-x: auto; 
         justify-content: flex-start; gap: 6px; padding-bottom: 4px; 
