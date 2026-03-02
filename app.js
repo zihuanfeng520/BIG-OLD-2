@@ -92,17 +92,14 @@ dom.startGameBtn.addEventListener('click', () => {
     dealCards();
 });
 
-// 🌟 結算面板三個按鈕的完整事件監聽 🌟
 document.getElementById('nextRoundBtn').addEventListener('click', () => { 
     document.getElementById('gameOverModal').style.display = 'none'; 
     gameState.currentRound++; updateScoreUI(); dealCards(); 
 });
-
 document.getElementById('playAgainBtn').addEventListener('click', () => { 
     document.getElementById('gameOverModal').style.display = 'none'; 
     gameState.currentRound = 1; gameState.scores = [0, 0, 0, 0]; updateScoreUI(); dealCards(); 
 });
-
 document.getElementById('returnMenuBtn').addEventListener('click', () => {
     document.getElementById('gameOverModal').style.display = 'none'; dom.gameScreen.style.display = 'none';
     dom.mainMenu.style.display = 'flex'; dom.bgm.pause();
@@ -450,28 +447,46 @@ dom.passBtn.addEventListener('click', () => {
     gameState.passCount++; nextTurn();
 });
 
+// 🌟 全新升級：帶有「雙倍扣分明細」的計分系統 🌟
 function calculatePenalty(hand, winnerPlayData) {
     let count = hand.length;
-    if (count === 0) return 0;
+    if (count === 0) return { penalty: 0, text: '' };
+    
     let penalty = count; 
-    if (count >= 10) penalty *= 2; 
+    let reasons = [`剩 ${count} 張 (基礎 -${count})`];
+
+    if (count >= 10) {
+        penalty *= 2; 
+        reasons.push(`牌數 ≥ 10 (x2)`);
+    }
+    
     let twosCount = hand.filter(c => c.value === '2').length;
-    for(let i=0; i<twosCount; i++) penalty *= 2; 
+    for(let i=0; i<twosCount; i++) {
+        penalty *= 2; 
+        reasons.push(`未出老二 (x2)`);
+    }
 
     let valGroups = {}; hand.forEach(c => { valGroups[c.value] = valGroups[c.value] || []; valGroups[c.value].push(c); });
     let bombsCount = 0;
     for (let v in valGroups) if (valGroups[v].length >= 4) bombsCount++;
+    
     let allCombos = findAllCombos(hand);
     let sfCount = allCombos.straightFlush.length > 0 ? 1 : 0; 
     let monstersCount = bombsCount + sfCount;
-    for(let i=0; i<monstersCount; i++) penalty *= 2; 
+    for(let i=0; i<monstersCount; i++) {
+        penalty *= 2; 
+        reasons.push(`未出怪物 (x2)`);
+    }
     
     if (winnerPlayData.type === 'fourOfAKind' || winnerPlayData.type === 'straightFlush') {
         penalty *= 2;
+        reasons.push(`被怪物尾刀 (x2)`);
     } else if ((winnerPlayData.type === 'single' || winnerPlayData.type === 'pair') && winnerPlayData.cards[0].value === '2') {
         penalty *= 2;
+        reasons.push(`被老二尾刀 (x2)`);
     }
-    return penalty;
+    
+    return { penalty: penalty, text: reasons.join(' ➔ ') };
 }
 
 function executePlay(playerIndex, cards, playData) {
@@ -506,23 +521,32 @@ function executePlay(playerIndex, cards, playData) {
     if (remainingCards === 0) {
         let roundScores = [0, 0, 0, 0];
         let totalPenalty = 0;
-        let detailsHtml = "";
+        let detailsHtml = `<div style="max-height: 250px; overflow-y: auto;">`; // 避免明細太長爆版
 
         for (let i = 0; i < gameState.settings.playerCount; i++) {
             if (i === playerIndex) continue;
             let hand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
-            let p = calculatePenalty(hand, playData);
+            
+            // 使用新版算分系統取得明細
+            let pData = calculatePenalty(hand, playData);
+            let p = pData.penalty;
             roundScores[i] = -p;
             totalPenalty += p;
+            
             let name = i === 0 ? '你' : `AI ${i}`;
-            detailsHtml += `<div style="margin-bottom: 5px;">${name} 剩 ${hand.length} 張牌<br>結算：<span style="color:#ef5350;">${-p} 分</span></div>`;
+            // 將明細完美渲染在畫面上
+            detailsHtml += `
+            <div style="margin-bottom: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
+                <div style="font-weight: bold; margin-bottom: 3px; font-size: 15px;">${name} <span style="color:#ef5350; float:right;">-${p} 分</span></div>
+                <div style="font-size: 12px; color: #aaa; line-height: 1.3;">[明細] ${pData.text}</div>
+            </div>`;
         }
         
         roundScores[playerIndex] = totalPenalty;
         for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
         
         let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
-        detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！</div>`;
+        detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！</div></div>`;
         
         updateScoreUI();
 
@@ -644,15 +668,16 @@ function simulateAI(aiIndex) {
             }
 
             if (!playerCanBeat) {
-                score += 400; 
+                // 🌟 修復：如果變態模式開啟，只有在「防守(跟牌)」時才無腦加分，起手(先手)不要亂丟大牌炫耀 🌟
+                if (!isLeading) score += 400; 
             } else {
                 let isPlayerNext = ((aiIndex + 1) % gameState.settings.playerCount) === 0;
                 if (isPlayerNext && playerHand.length <= 4) score -= 600; 
             }
             
             if (isLeading && playerHand.length <= 6) {
-                if (pCombos[play.data.type].length === 0) score += 250; 
-                else score -= 100; 
+                if (pCombos[play.data.type].length === 0) score += 150; 
+                else score -= 50; 
             }
         }
         return score;
@@ -663,8 +688,17 @@ function simulateAI(aiIndex) {
     if (!gameState.lastPlayed) {
         let hasClub3 = aiHand.find(c => c.suit === '♣' && c.value === '3');
         if (gameState.playedCardsHistory.length === 0 && hasClub3) {
-            executePlay(aiIndex, [hasClub3], getHandPower([hasClub3]));
-            return;
+            // 首局出包含梅花3的最好組合
+            ['single', 'pair', 'straight', 'fullHouse', 'fourOfAKind', 'straightFlush'].forEach(type => {
+                aiCombos[type].forEach(combo => {
+                    if (combo.includes(hasClub3)) validPlays.push({ cards: combo, data: getHandPower(combo) });
+                });
+            });
+            validPlays.sort((a, b) => getPlayScore(b, true) - getPlayScore(a, true));
+            if (validPlays.length > 0) {
+                executePlay(aiIndex, validPlays[0].cards, validPlays[0].data);
+                return;
+            }
         }
 
         let decomp = getGreedyDecomposition(aiHand);
