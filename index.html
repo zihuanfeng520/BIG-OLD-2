@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>網頁版大老二</title>
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
     <audio id="bgm" src="doudizhu-bgm.mp3" loop></audio>
@@ -21,22 +21,23 @@
     <div id="game-screen" class="screen" style="display: none;">
         <div class="header">
             <h1>離線大老二</h1>
+            <div class="round-info">第 <span id="round-num">1</span> 局</div>
             <button id="gameSettingsBtn" class="gear-btn" title="遊戲設定"></button>
         </div>
 
         <div class="game-board">
             <div id="player-top" class="player-area">
-                <div class="ai-name">AI 2</div>
+                <div class="ai-name">AI 2 <span class="score-badge" id="score-2">0分</span></div>
                 <div id="ai2-cards" class="ai-cards-container horiz"></div>
             </div>
             
             <div id="player-left" class="player-area">
-                <div class="ai-name">AI 1</div>
+                <div class="ai-name">AI 1 <span class="score-badge" id="score-1">0分</span></div>
                 <div id="ai1-cards" class="ai-cards-container vert"></div>
             </div>
             
             <div id="player-right" class="player-area">
-                <div class="ai-name">AI 3</div>
+                <div class="ai-name">AI 3 <span class="score-badge" id="score-3">0分</span></div>
                 <div id="ai3-cards" class="ai-cards-container vert"></div>
             </div>
             
@@ -66,7 +67,7 @@
                 
                 <div class="player-hand-wrapper">
                     <div class="main-hand">
-                        <div class="area-title">你的手牌</div>
+                        <div class="area-title">你的手牌 <span class="score-badge" id="score-0">0分</span></div>
                         <div id="my-cards" class="cards-container single-row"></div>
                     </div>
                     <div class="saved-hand">
@@ -110,11 +111,14 @@
     </div>
 
     <div id="gameOverModal" class="modal">
-        <div class="modal-content center-content">
+        <div class="modal-content center-content" style="max-width: 450px;">
             <h2 id="winner-msg" class="modal-title">遊戲結束</h2>
-            <div class="modal-actions">
-                <button id="playAgainBtn" class="big-btn primary-bg">再來一局</button>
-                <button id="returnMenuBtn" class="big-btn danger-bg">回到主介面</button>
+            <div id="round-summary" style="font-size:14px; margin-bottom:15px; color:#ddd; text-align:left; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;"></div>
+            
+            <div class="modal-actions" style="gap: 12px;">
+                <button id="nextRoundBtn" class="big-btn" style="background:#43a047;">下一把 (繼續計分)</button>
+                <button id="playAgainBtn" class="big-btn" style="background:#fbc02d; color:#000; font-size: 16px; padding: 8px;">重新開始 (分數歸零)</button>
+                <button id="returnMenuBtn" class="big-btn danger-bg" style="font-size: 16px; padding: 8px;">回到主介面</button>
             </div>
         </div>
     </div>
