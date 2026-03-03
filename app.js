@@ -8,7 +8,6 @@ const gameState = {
     deck: [], hands: [[], [], [], []], savedCards: [], playedCardsHistory: [], 
     currentTurn: 0, lastPlayed: null, passCount: 0,
     passedPlayers: [false, false, false, false],
-    // 🌟 新增一條龍的快捷鍵狀態 🌟
     availableCombos: { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [], dragon: [] },
     comboIndexes: { single: 0, pair: 0, straight: 0, fullHouse: 0, fourOfAKind: 0, straightFlush: 0, dragon: 0 },
     currentRound: 1, scores: [0, 0, 0, 0]
@@ -310,7 +309,6 @@ function getCombinations(arr, k) {
     return combos;
 }
 
-// 🌟 究極核彈判斷：一條龍 (13張牌) 🌟
 function getHandPower(cards) {
     if (cards.length === 1) return { type: 'single', power: cards[0].weight, cards: cards };
     if (cards.length === 2 && cards[0].value === cards[1].value) return { type: 'pair', power: Math.max(cards[0].weight, cards[1].weight), cards: cards };
@@ -357,7 +355,6 @@ function getHandPower(cards) {
         }
     }
     
-    // 🐉 檢查是否為一條龍 🐉
     if (cards.length === 13) {
         let valSet = new Set(cards.map(c => c.value));
         if (valSet.size === 13) {
@@ -409,7 +406,6 @@ function findAllCombos(handCards) {
         }
     });
 
-    // 🐉 掃描一條龍組合 🐉
     let hasDragon = trackerValues.every(v => valGroups[v] && valGroups[v].length > 0);
     if (hasDragon) {
         let dragonGroups = trackerValues.map(v => valGroups[v]);
@@ -433,7 +429,6 @@ function analyzeHandCombos() {
     document.querySelectorAll('.combo-btn').forEach(btn => {
         let type = btn.getAttribute('data-type');
         
-        // 🌟 隱藏金龍按鈕的顯示邏輯 🌟
         if (type === 'dragon') {
             if (allCombos.dragon && allCombos.dragon.length > 0) {
                 btn.style.display = 'inline-block';
@@ -502,9 +497,7 @@ dom.playBtn.addEventListener('click', () => {
     if (gameState.lastPlayed && gameState.lastPlayed.player !== 0) {
         let lp = gameState.lastPlayed;
         
-        // 🌟 一條龍無視任何規則，直接蓋爆對手！ 🌟
         if (playData.type === 'dragon') { 
-            // 允許出牌！
         } else if (lp.type === 'dragon') {
             return alert("對方出了一條龍，你絕對大不過！");
         } else if (playData.type === 'fourOfAKind' && lp.type !== 'fourOfAKind' && lp.type !== 'straightFlush') { 
@@ -533,7 +526,6 @@ dom.passBtn.addEventListener('click', () => {
     nextTurn();
 });
 
-// 🌟 一條龍地獄級懲罰 🌟
 function calculatePenalty(hand, winnerPlayData) {
     let count = hand.length;
     if (count === 0) return { penalty: 0, text: '' };
@@ -564,10 +556,9 @@ function calculatePenalty(hand, winnerPlayData) {
         reasons.push(`未出怪物 (x2)`);
     }
     
-    // 尾刀判定
     if (winnerPlayData.type === 'dragon') {
-        penalty *= 4;
-        reasons.push(`被一條龍碾壓 (x4)`);
+        penalty *= 2; 
+        reasons.push(`被一條龍碾壓 (x2)`);
     } else if (winnerPlayData.type === 'fourOfAKind' || winnerPlayData.type === 'straightFlush') {
         penalty *= 2;
         reasons.push(`被怪物尾刀 (x2)`);
@@ -580,7 +571,6 @@ function calculatePenalty(hand, winnerPlayData) {
 }
 
 function executePlay(playerIndex, cards, playData) {
-    // 🐉 如果打出一條龍，觸發全螢幕震撼特效！ 🐉
     if (playData.type === 'dragon') {
         let dragonAnim = document.getElementById('dragon-animation');
         if (dragonAnim) {
@@ -600,7 +590,6 @@ function executePlay(playerIndex, cards, playData) {
     let typeStr = typeNames[playData.type] || '未知';
     let cardsDetail = cards.map(c => c.suit + c.value).join(' '); 
     
-    // 如果是一條龍，顯示特別金黃色字體
     let msgColor = playData.type === 'dragon' ? '#ffd700' : '#fbc02d';
     dom.centerTable.innerHTML = `<div class="table-msg" style="color: ${msgColor};">${playerName} 出牌：${typeStr}<br><span style="font-size:13px; color:#aaa">${cardsDetail}</span></div><div class="cards-container single-row" style="min-height: auto; padding-top:0;"></div>`;
     let tableContainer = dom.centerTable.querySelector('.cards-container');
@@ -620,7 +609,6 @@ function executePlay(playerIndex, cards, playData) {
     let remainingCards = playerIndex === 0 ? (gameState.hands[0].length + gameState.savedCards.length) : gameState.hands[playerIndex].length;
     
     if (remainingCards === 0) {
-        // 如果一條龍觸發結算，讓動畫播完再跳結算面板
         setTimeout(() => {
             try {
                 let roundScores = [0, 0, 0, 0];
@@ -665,7 +653,7 @@ function executePlay(playerIndex, cards, playData) {
                 console.error("結算錯誤:", e);
                 alert("結算時發生錯誤，請確認已更新最新版 HTML！");
             }
-        }, playData.type === 'dragon' ? 3000 : 0); // 確保一條龍動畫播完再結算
+        }, playData.type === 'dragon' ? 3000 : 0); 
         return; 
     }
     nextTurn();
@@ -721,7 +709,7 @@ function getGreedyDecomposition(handCards) {
     while (tempHand.length > 0 && turns < 20) {
         let curCombos = findAllCombos(tempHand);
         let toRemove = [];
-        if (curCombos.dragon && curCombos.dragon.length > 0) { toRemove = curCombos.dragon[0]; } // 優先拆龍
+        if (curCombos.dragon && curCombos.dragon.length > 0) { toRemove = curCombos.dragon[0]; } 
         else if (curCombos.straightFlush.length > 0) { toRemove = curCombos.straightFlush[0]; }
         else if (curCombos.fourOfAKind.length > 0) { toRemove = curCombos.fourOfAKind[0]; }
         else if (curCombos.straight.length > 0) { toRemove = curCombos.straight[0]; }
@@ -781,11 +769,23 @@ function simulateAI(aiIndex) {
             score += (play.cards.length * 2);
             let nextPlayer = (aiIndex + 1) % gameState.settings.playerCount;
             let nextPlayerCards = gameState.hands[nextPlayer].length;
+            
+            // 🌟 修正頂大牌邏輯：不但要扣分，還要確保「被逼著出單張時，從最大的開始丟」！ 🌟
             if (nextPlayerCards === 1 && play.data.type === 'single') {
-                if (!['2', 'A'].includes(play.data.cards[0].value)) score -= 2000; 
+                if (['2', 'A'].includes(play.data.cards[0].value)) {
+                    score += play.data.power * 50; 
+                } else {
+                    score -= 5000; 
+                    score += play.data.power * 50; 
+                }
             }
             if (nextPlayerCards === 2 && play.data.type === 'pair') {
-                if (!['2', 'A'].includes(play.data.cards[0].value)) score -= 2000; 
+                if (['2', 'A'].includes(play.data.cards[0].value)) {
+                    score += play.data.power * 50; 
+                } else {
+                    score -= 5000; 
+                    score += play.data.power * 50; 
+                }
             }
         }
 
@@ -821,7 +821,6 @@ function simulateAI(aiIndex) {
     let currentScore = evaluateHandState(aiHand);
 
     if (!gameState.lastPlayed) {
-        // 🌟 如果 AI 有一條龍，管他三七二十一，直接蓋爆全場！ 🌟
         if (aiCombos.dragon && aiCombos.dragon.length > 0) {
             executePlay(aiIndex, aiCombos.dragon[0], getHandPower(aiCombos.dragon[0]));
             return;
@@ -879,7 +878,6 @@ function simulateAI(aiIndex) {
             return;
         }
     } else {
-        // 🌟 如果 AI 有一條龍，任何時候都可以防守蓋牌！ 🌟
         if (aiCombos.dragon && aiCombos.dragon.length > 0) {
             executePlay(aiIndex, aiCombos.dragon[0], getHandPower(aiCombos.dragon[0]));
             return;
@@ -889,7 +887,6 @@ function simulateAI(aiIndex) {
         let targetPower = gameState.lastPlayed.power;
         let targetCount = gameState.lastPlayed.cards.length;
 
-        // 如果對手出了一條龍，AI只能放棄（無人能敵）
         if (targetType === 'dragon') {
             let cardsContainer = dom.centerTable.querySelector('.cards-container');
             let cardsHtml = cardsContainer ? cardsContainer.outerHTML : '';
