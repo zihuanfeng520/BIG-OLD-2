@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>大老二</title>
-    <link rel="stylesheet" href="style.css?v=14">
+    <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
     <audio id="bgm" src="doudizhu-bgm.mp3" loop></audio>
@@ -136,14 +136,14 @@
     </div>
 
     <div id="gameOverModal" class="modal">
-        <div class="modal-content center-content" style="max-width: 450px;">
+        <div class="modal-content settlement-content">
             <h2 id="winner-msg" class="modal-title">遊戲結束</h2>
-            <div id="round-summary" style="font-size:14px; margin-bottom:15px; color:#ddd; text-align:left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"></div>
+            <div id="round-summary" class="settlement-container"></div>
             
-            <div class="modal-actions" style="gap: 12px;">
-                <button id="nextRoundBtn" class="big-btn" style="background:#43a047;">下一把 (繼續計分)</button>
-                <button id="playAgainBtn" class="big-btn" style="background:#fbc02d; color:#000; font-size: 16px; padding: 8px;">重新開始 (分數歸零)</button>
-                <button id="returnMenuBtn" class="big-btn danger-bg" style="font-size: 16px; padding: 8px;">回到主介面</button>
+            <div class="modal-actions settlement-actions">
+                <button id="nextRoundBtn" class="big-btn" style="background:#43a047;">接著一局 (繼續計分)</button>
+                <button id="playAgainBtn" class="big-btn" style="background:#fbc02d; color:#000; font-size: 16px; padding: 8px;">重新一局 (分數歸零)</button>
+                <button id="returnMenuBtn" class="big-btn danger-bg" style="font-size: 16px; padding: 8px;">回到大廳</button>
             </div>
         </div>
     </div>
