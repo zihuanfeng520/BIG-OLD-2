@@ -6,7 +6,7 @@ if (isMobile) {
 const gameState = {
     settings: { music: false, volume: 0.5, pervertMode: false, strictPass: false, showHistory: false, playerCount: 4, aiSpeed: 1500 },
     deck: [], hands: [[], [], [], []], savedCards: [], playedCardsHistory: [], 
-    initialHands: [[], [], [], []], // 🌟 新增：紀錄開局手牌供結算顯示 🌟
+    initialHands: [[], [], [], []], // 🌟 確保開局手牌有被記錄 🌟
     currentTurn: 0, lastPlayed: null, passCount: 0,
     passedPlayers: [false, false, false, false],
     availableCombos: { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [], dragon: [] },
@@ -178,7 +178,7 @@ function createCardDOM(card, sourceArray, targetContainer, isMini = false) {
     targetContainer.appendChild(cardDiv);
 }
 
-// 🌟 新增：產出結算畫面用的靜態卡牌 HTML 字串 🌟
+// 🌟 產生結算戰報專用的靜態小卡片 🌟
 function getCardHtmlString(card) {
     let color = (card.suit === '♥' || card.suit === '♦') ? '#d32f2f' : '#212121';
     return `
@@ -288,7 +288,7 @@ async function dealCards() {
     gameState.currentTurn = club3Owner;
     gameState.hands.forEach(hand => hand.sort((a, b) => a.weight - b.weight));
     
-    // 🌟 快照：將發完排序好的牌存入初始手牌，供結算面板使用 🌟
+    // 🌟 快照：將發完排序好的牌存入初始手牌，供結算戰報使用 🌟
     gameState.initialHands = gameState.hands.map(hand => [...hand]);
 
     renderMyCards(); 
@@ -541,6 +541,7 @@ dom.passBtn.addEventListener('click', () => {
     nextTurn();
 });
 
+// 🌟 一條龍尾刀乘數正確下調為 x2 🌟
 function calculatePenalty(hand, winnerPlayData) {
     let count = hand.length;
     if (count === 0) return { penalty: 0, text: '' };
@@ -585,7 +586,6 @@ function calculatePenalty(hand, winnerPlayData) {
     return { penalty: penalty, text: reasons.join(' ➔ ') };
 }
 
-// 🌟 終極戰報：全新結算介面渲染 🌟
 function executePlay(playerIndex, cards, playData) {
     if (playData.type === 'dragon') {
         let dragonAnim = document.getElementById('dragon-animation');
@@ -631,7 +631,7 @@ function executePlay(playerIndex, cards, playData) {
                 let totalPenalty = 0;
                 let pDatas = [];
 
-                // 第一輪：先計算所有分數，得出總贏分
+                // 🌟 終極戰報：第一輪先計算出所有人的結算分數 🌟
                 for (let i = 0; i < gameState.settings.playerCount; i++) {
                     if (i === playerIndex) {
                         pDatas[i] = { penalty: 0, text: '🎉 贏家 (全部脫手)' };
@@ -646,8 +646,8 @@ function executePlay(playerIndex, cards, playData) {
                 roundScores[playerIndex] = totalPenalty;
                 for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
 
-                // 第二輪：生成戰報 HTML (含初始手牌、剩餘手牌與明細)
-                let detailsHtml = ``; 
+                // 🌟 終極戰報：第二輪組裝超華麗帶有實體卡牌的 HTML 🌟
+                let detailsHtml = `<div class="settlement-container">`; 
                 for (let i = 0; i < gameState.settings.playerCount; i++) {
                     let name = i === 0 ? '你' : `AI ${i}`;
                     let scoreText = i === playerIndex ? `<span style="color:#fbc02d; font-weight:bold;">+${totalPenalty} 分</span>` : `<span style="color:#ef5350; font-weight:bold;">${roundScores[i]} 分</span>`;
@@ -656,35 +656,41 @@ function executePlay(playerIndex, cards, playData) {
                     let currentHand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
 
                     let initialHtml = `<div class="settlement-cards">` + initialHand.map(c => getCardHtmlString(c)).join('') + `</div>`;
-                    let remainHtml = currentHand.length > 0 ? `<div class="settlement-cards">` + currentHand.map(c => getCardHtmlString(c)).join('') + `</div>` : `<div style="color:#43a047; font-size: 14px; font-weight: bold;">已脫手</div>`;
+                    let remainHtml = currentHand.length > 0 ? `<div class="settlement-cards">` + currentHand.map(c => getCardHtmlString(c)).join('') + `</div>` : `<div style="color:#43a047; font-size: 14px; font-weight: bold; margin-top: 10px;">已脫手</div>`;
 
                     detailsHtml += `
                         <div class="settlement-player-row">
                             <div class="settlement-name">${name} <span style="float:right;">${scoreText}</span></div>
                             <div class="settlement-sub">初始手牌：<br>${initialHtml}</div>
-                            <div class="settlement-sub">剩餘手牌：<br>${remainHtml}</div>
+                            <div class="settlement-sub" style="margin-top: 15px;">剩餘手牌：<br>${remainHtml}</div>
                             <div class="settlement-detail">${pDatas[i].text}</div>
                         </div>
                     `;
                 }
 
-                // 加入出牌歷史紀錄區塊
+                // 🌟 加入本局出牌歷史紀錄 🌟
                 let historyHtml = `<div class="settlement-history-box"><h4>📜 本局出牌歷史</h4><ul>`;
                 gameState.playedCardsHistory.forEach(msg => { historyHtml += `<li>${msg}</li>`; });
-                historyHtml += `</ul></div>`;
+                historyHtml += `</ul></div></div>`;
                 
                 detailsHtml += historyHtml;
 
                 let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
-                document.getElementById('winner-msg').innerText = playData.type === 'dragon' ? `🐉 一條龍天胡，${winnerName} 狂掃全場！` : `🏆 ${winnerName} 贏得了這局！`;
+                let winMsg = playData.type === 'dragon' ? `🐉 一條龍天胡，${winnerName} 狂掃全場！` : `🏆 ${winnerName} 贏得了這局！`;
+                detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">${winMsg}</div>`;
                 
+                updateScoreUI();
+
+                // 更新 Modal 標題
+                document.getElementById('winner-msg').innerText = playData.type === 'dragon' ? `🐉 一條龍天胡！` : `💀 遊戲結束，${winnerName} 贏了！`;
+                if(playerIndex === 0 && playData.type !== 'dragon') document.getElementById('winner-msg').innerText = "🎉 恭喜你，你贏了！";
+
+                // 將組合好的華麗戰報塞進 DOM
                 let roundSummaryEl = document.getElementById('round-summary');
                 if (roundSummaryEl) roundSummaryEl.innerHTML = detailsHtml;
                 
                 let modalEl = document.getElementById('gameOverModal');
                 if (modalEl) modalEl.style.display = 'block';
-                
-                updateScoreUI();
 
             } catch (e) {
                 console.error("結算錯誤:", e);
