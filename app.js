@@ -6,6 +6,7 @@ if (isMobile) {
 const gameState = {
     settings: { music: false, volume: 0.5, pervertMode: false, strictPass: false, showHistory: false, playerCount: 4, aiSpeed: 1500 },
     deck: [], hands: [[], [], [], []], savedCards: [], playedCardsHistory: [], 
+    initialHands: [[], [], [], []], // 🌟 新增：紀錄開局手牌供結算顯示 🌟
     currentTurn: 0, lastPlayed: null, passCount: 0,
     passedPlayers: [false, false, false, false],
     availableCombos: { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [], dragon: [] },
@@ -177,6 +178,17 @@ function createCardDOM(card, sourceArray, targetContainer, isMini = false) {
     targetContainer.appendChild(cardDiv);
 }
 
+// 🌟 新增：產出結算畫面用的靜態卡牌 HTML 字串 🌟
+function getCardHtmlString(card) {
+    let color = (card.suit === '♥' || card.suit === '♦') ? '#d32f2f' : '#212121';
+    return `
+    <div class="card mini settlement-card" style="color: ${color};">
+        <div class="card-corner top-left"><span>${card.value}</span><span>${card.suit}</span></div>
+        ${generatePips(card)}
+        <div class="card-corner bottom-right"><span>${card.value}</span><span>${card.suit}</span></div>
+    </div>`;
+}
+
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 function updateOpponentCardCount(players) {
@@ -276,6 +288,9 @@ async function dealCards() {
     gameState.currentTurn = club3Owner;
     gameState.hands.forEach(hand => hand.sort((a, b) => a.weight - b.weight));
     
+    // 🌟 快照：將發完排序好的牌存入初始手牌，供結算面板使用 🌟
+    gameState.initialHands = gameState.hands.map(hand => [...hand]);
+
     renderMyCards(); 
     analyzeHandCombos();
     
@@ -557,7 +572,7 @@ function calculatePenalty(hand, winnerPlayData) {
     }
     
     if (winnerPlayData.type === 'dragon') {
-        penalty *= 2; 
+        penalty *= 2;
         reasons.push(`被一條龍碾壓 (x2)`);
     } else if (winnerPlayData.type === 'fourOfAKind' || winnerPlayData.type === 'straightFlush') {
         penalty *= 2;
@@ -570,6 +585,7 @@ function calculatePenalty(hand, winnerPlayData) {
     return { penalty: penalty, text: reasons.join(' ➔ ') };
 }
 
+// 🌟 終極戰報：全新結算介面渲染 🌟
 function executePlay(playerIndex, cards, playData) {
     if (playData.type === 'dragon') {
         let dragonAnim = document.getElementById('dragon-animation');
@@ -613,41 +629,62 @@ function executePlay(playerIndex, cards, playData) {
             try {
                 let roundScores = [0, 0, 0, 0];
                 let totalPenalty = 0;
-                let detailsHtml = `<div style="max-height: 250px; overflow-y: auto;">`; 
+                let pDatas = [];
 
+                // 第一輪：先計算所有分數，得出總贏分
                 for (let i = 0; i < gameState.settings.playerCount; i++) {
-                    if (i === playerIndex) continue;
-                    let hand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
-                    
-                    let pData = calculatePenalty(hand, playData);
-                    let p = pData.penalty;
-                    roundScores[i] = -p;
-                    totalPenalty += p;
-                    
-                    let name = i === 0 ? '你' : `AI ${i}`;
-                    detailsHtml += `
-                    <div style="margin-bottom: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
-                        <div style="font-weight: bold; margin-bottom: 3px; font-size: 15px;">${name} <span style="color:#ef5350; float:right;">-${p} 分</span></div>
-                        <div style="font-size: 12px; color: #aaa; line-height: 1.3;">[明細] ${pData.text}</div>
-                    </div>`;
+                    if (i === playerIndex) {
+                        pDatas[i] = { penalty: 0, text: '🎉 贏家 (全部脫手)' };
+                    } else {
+                        let hand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
+                        pDatas[i] = calculatePenalty(hand, playData);
+                        roundScores[i] = -pDatas[i].penalty;
+                        totalPenalty += pDatas[i].penalty;
+                    }
                 }
                 
                 roundScores[playerIndex] = totalPenalty;
                 for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
-                
-                let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
-                let winMsg = playData.type === 'dragon' ? `🏆 贏家 ${winnerName} 以一條龍天胡，狂掃 +${totalPenalty} 分！` : `🏆 贏家 ${winnerName} 獲得 +${totalPenalty} 分！`;
-                detailsHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 10px 0;"><div style="color:#fbc02d; font-size:18px; text-align:center; font-weight:bold;">${winMsg}</div></div>`;
-                
-                updateScoreUI();
 
-                document.getElementById('winner-msg').innerText = playerIndex === 0 ? "🎉 恭喜你，你贏了！" : `💀 遊戲結束，${winnerName} 贏了！`;
+                // 第二輪：生成戰報 HTML (含初始手牌、剩餘手牌與明細)
+                let detailsHtml = ``; 
+                for (let i = 0; i < gameState.settings.playerCount; i++) {
+                    let name = i === 0 ? '你' : `AI ${i}`;
+                    let scoreText = i === playerIndex ? `<span style="color:#fbc02d; font-weight:bold;">+${totalPenalty} 分</span>` : `<span style="color:#ef5350; font-weight:bold;">${roundScores[i]} 分</span>`;
+                    
+                    let initialHand = gameState.initialHands[i];
+                    let currentHand = i === 0 ? [...gameState.hands[0], ...gameState.savedCards] : gameState.hands[i];
+
+                    let initialHtml = `<div class="settlement-cards">` + initialHand.map(c => getCardHtmlString(c)).join('') + `</div>`;
+                    let remainHtml = currentHand.length > 0 ? `<div class="settlement-cards">` + currentHand.map(c => getCardHtmlString(c)).join('') + `</div>` : `<div style="color:#43a047; font-size: 14px; font-weight: bold;">已脫手</div>`;
+
+                    detailsHtml += `
+                        <div class="settlement-player-row">
+                            <div class="settlement-name">${name} <span style="float:right;">${scoreText}</span></div>
+                            <div class="settlement-sub">初始手牌：<br>${initialHtml}</div>
+                            <div class="settlement-sub">剩餘手牌：<br>${remainHtml}</div>
+                            <div class="settlement-detail">${pDatas[i].text}</div>
+                        </div>
+                    `;
+                }
+
+                // 加入出牌歷史紀錄區塊
+                let historyHtml = `<div class="settlement-history-box"><h4>📜 本局出牌歷史</h4><ul>`;
+                gameState.playedCardsHistory.forEach(msg => { historyHtml += `<li>${msg}</li>`; });
+                historyHtml += `</ul></div>`;
+                
+                detailsHtml += historyHtml;
+
+                let winnerName = playerIndex === 0 ? '你' : `AI ${playerIndex}`;
+                document.getElementById('winner-msg').innerText = playData.type === 'dragon' ? `🐉 一條龍天胡，${winnerName} 狂掃全場！` : `🏆 ${winnerName} 贏得了這局！`;
                 
                 let roundSummaryEl = document.getElementById('round-summary');
                 if (roundSummaryEl) roundSummaryEl.innerHTML = detailsHtml;
                 
                 let modalEl = document.getElementById('gameOverModal');
                 if (modalEl) modalEl.style.display = 'block';
+                
+                updateScoreUI();
 
             } catch (e) {
                 console.error("結算錯誤:", e);
@@ -770,7 +807,6 @@ function simulateAI(aiIndex) {
             let nextPlayer = (aiIndex + 1) % gameState.settings.playerCount;
             let nextPlayerCards = gameState.hands[nextPlayer].length;
             
-            // 🌟 修正頂大牌邏輯：不但要扣分，還要確保「被逼著出單張時，從最大的開始丟」！ 🌟
             if (nextPlayerCards === 1 && play.data.type === 'single') {
                 if (['2', 'A'].includes(play.data.cards[0].value)) {
                     score += play.data.power * 50; 
