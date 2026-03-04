@@ -6,7 +6,7 @@ if (isMobile) {
 const gameState = {
     settings: { music: false, volume: 0.5, pervertMode: false, strictPass: false, showHistory: false, playerCount: 4, aiSpeed: 1500 },
     deck: [], hands: [[], [], [], []], savedCards: [], playedCardsHistory: [], 
-    initialHands: [[], [], [], []], // 🌟 確保開局手牌有被記錄 🌟
+    initialHands: [[], [], [], []], 
     currentTurn: 0, lastPlayed: null, passCount: 0,
     passedPlayers: [false, false, false, false],
     availableCombos: { single: [], pair: [], straight: [], fullHouse: [], fourOfAKind: [], straightFlush: [], dragon: [] },
@@ -178,7 +178,6 @@ function createCardDOM(card, sourceArray, targetContainer, isMini = false) {
     targetContainer.appendChild(cardDiv);
 }
 
-// 🌟 產生結算戰報專用的靜態小卡片 🌟
 function getCardHtmlString(card) {
     let color = (card.suit === '♥' || card.suit === '♦') ? '#d32f2f' : '#212121';
     return `
@@ -288,7 +287,6 @@ async function dealCards() {
     gameState.currentTurn = club3Owner;
     gameState.hands.forEach(hand => hand.sort((a, b) => a.weight - b.weight));
     
-    // 🌟 快照：將發完排序好的牌存入初始手牌，供結算戰報使用 🌟
     gameState.initialHands = gameState.hands.map(hand => [...hand]);
 
     renderMyCards(); 
@@ -541,7 +539,6 @@ dom.passBtn.addEventListener('click', () => {
     nextTurn();
 });
 
-// 🌟 一條龍尾刀乘數正確下調為 x2 🌟
 function calculatePenalty(hand, winnerPlayData) {
     let count = hand.length;
     if (count === 0) return { penalty: 0, text: '' };
@@ -573,7 +570,7 @@ function calculatePenalty(hand, winnerPlayData) {
     }
     
     if (winnerPlayData.type === 'dragon') {
-        penalty *= 2;
+        penalty *= 2; 
         reasons.push(`被一條龍碾壓 (x2)`);
     } else if (winnerPlayData.type === 'fourOfAKind' || winnerPlayData.type === 'straightFlush') {
         penalty *= 2;
@@ -631,7 +628,6 @@ function executePlay(playerIndex, cards, playData) {
                 let totalPenalty = 0;
                 let pDatas = [];
 
-                // 🌟 終極戰報：第一輪先計算出所有人的結算分數 🌟
                 for (let i = 0; i < gameState.settings.playerCount; i++) {
                     if (i === playerIndex) {
                         pDatas[i] = { penalty: 0, text: '🎉 贏家 (全部脫手)' };
@@ -646,7 +642,6 @@ function executePlay(playerIndex, cards, playData) {
                 roundScores[playerIndex] = totalPenalty;
                 for(let i=0; i<gameState.settings.playerCount; i++) gameState.scores[i] += roundScores[i];
 
-                // 🌟 終極戰報：第二輪組裝超華麗帶有實體卡牌的 HTML 🌟
                 let detailsHtml = `<div class="settlement-container">`; 
                 for (let i = 0; i < gameState.settings.playerCount; i++) {
                     let name = i === 0 ? '你' : `AI ${i}`;
@@ -668,8 +663,18 @@ function executePlay(playerIndex, cards, playData) {
                     `;
                 }
 
-                // 🌟 加入本局出牌歷史紀錄 🌟
-                let historyHtml = `<div class="settlement-history-box"><h4>📜 本局出牌歷史</h4><ul>`;
+                // 🌟 新增：包含純文字版初始手牌的出牌歷史紀錄區塊 🌟
+                let historyHtml = `<div class="settlement-history-box"><h4>📜 本局出牌歷史</h4><ul style="padding-left: 0; list-style: none;">`;
+                
+                // 寫入純文字版初始手牌
+                for(let i=0; i<gameState.settings.playerCount; i++) {
+                    let n = i===0 ? '你' : 'AI ' + i;
+                    let cardsStr = gameState.initialHands[i].map(c => c.suit + c.value).join(' ');
+                    historyHtml += `<li style="color: #90caf9; margin-bottom: 4px; font-size: 12px;">【初始手牌】${n}：${cardsStr}</li>`;
+                }
+                historyHtml += `<hr style="border:0; border-top:1px dashed #555; margin: 8px 0;">`;
+                
+                // 寫入出牌歷程
                 gameState.playedCardsHistory.forEach(msg => { historyHtml += `<li>${msg}</li>`; });
                 historyHtml += `</ul></div></div>`;
                 
@@ -681,11 +686,9 @@ function executePlay(playerIndex, cards, playData) {
                 
                 updateScoreUI();
 
-                // 更新 Modal 標題
                 document.getElementById('winner-msg').innerText = playData.type === 'dragon' ? `🐉 一條龍天胡！` : `💀 遊戲結束，${winnerName} 贏了！`;
                 if(playerIndex === 0 && playData.type !== 'dragon') document.getElementById('winner-msg').innerText = "🎉 恭喜你，你贏了！";
-
-                // 將組合好的華麗戰報塞進 DOM
+                
                 let roundSummaryEl = document.getElementById('round-summary');
                 if (roundSummaryEl) roundSummaryEl.innerHTML = detailsHtml;
                 
